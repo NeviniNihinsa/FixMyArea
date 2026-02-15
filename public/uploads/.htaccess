@@ -1,0 +1,11 @@
+Options -Indexes
+
+# block scripts
+<FilesMatch "\.(php|phtml|php3|php4|php5|phar)$">
+    Deny from all
+</FilesMatch>
+
+# allow images only
+<FilesMatch "\.(jpg|jpeg|png|webp)$">
+    Allow from all
+</FilesMatch>

@@ -1,0 +1,132 @@
+
+html, body{
+  height:100%;
+  margin:0;
+}
+
+body{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1200px 800px at 30% 10%, var(--brand-700), var(--bg));
+  color: var(--text-100);
+}
+
+.app-container{
+  flex:1;
+}
+
+footer{
+  flex-shrink:0;
+}
+
+:root{
+  /* Brand */
+  --brand-900:#12363D;
+  --brand-800:#173C45;
+  --brand-700:#234F51;
+
+  /* Accent */
+  --accent-500:#34D9A9;
+  --accent-600:#34AB90;
+
+  /* Neutrals */
+  --text-100:#F1F6F6;
+  --text-300:#B3D8D6;
+  --muted-400:#96AAAD;
+  --muted-600:#4F696E;
+
+  /* UI surfaces */
+  --bg:#0F2E35;
+  --card:#0F343B;
+  --border:rgba(241,246,246,0.12);
+
+  --radius:16px;
+}
+
+/*  Cards / Panels  */
+.card-dark{
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+}
+
+/* Login-only layout */
+.login-wrap{
+  min-height: calc(100vh - 120px); /* reduced gap */
+  display:flex;
+  align-items:center;
+}
+
+/* Auth card used in login/register pages */
+.auth-card{
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+}
+
+/* Inputs */
+.form-control, .form-select{
+  background: rgba(15,52,59,0.65);
+  border: 1px solid var(--border);
+  color: var(--text-100);
+}
+.form-control:focus, .form-select:focus{
+  border-color: rgba(52,217,169,0.6);
+  box-shadow: 0 0 0 0.2rem rgba(52,217,169,0.15);
+  background: rgba(15,52,59,0.75);
+  color: var(--text-100);
+}
+.form-label{ color: var(--muted-400); }
+.text-muted{ color: var(--muted-400) !important; }
+
+/* Buttons */
+.btn-brand{
+  background: var(--accent-500);
+  border-color: var(--accent-500);
+  color: #07211F;
+  font-weight: 600;
+}
+.btn-brand:hover{
+  background: var(--accent-600);
+  border-color: var(--accent-600);
+  color: #071F1D;
+}
+.btn-outline-brand{
+  border: 1px solid rgba(52,217,169,0.65);
+  color: var(--accent-500);
+}
+.btn-outline-brand:hover{
+  background: rgba(52,217,169,0.12);
+  color: var(--text-100);
+}
+
+/* Links */
+a{ color: var(--accent-500); }
+a:hover{ color: var(--text-300); }
+
+/* Table  */
+.table-dark-custom{
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text-100);
+  border-color: var(--border);
+}
+.table-dark-custom th, .table-dark-custom td{
+  border-color: var(--border);
+}
+
+/* Small validation text under fields */
+.field-error{
+  font-size: 0.85rem;
+  color: #FF6B6B;
+  margin-top: 4px;
+  min-height: 18px;
+}
+.field-ok{
+  font-size: 0.85rem;
+  color: #52FFB8;
+  margin-top: 4px;
+}
