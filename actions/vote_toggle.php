@@ -17,18 +17,18 @@ if ($issueId <= 0) {
     exit;
 }
 
-/* Check existing vote */
+//Check existing vote
 $st = $pdo->prepare("SELECT vote_id FROM votes WHERE issue_id = ? AND user_id = ? AND value = 1 LIMIT 1");
 $st->execute([$issueId, $userId]);
 $voteId = $st->fetchColumn();
 
 if ($voteId) {
-    /* Remove vote (toggle off) */
+    //Remove vote (toggle off)
     $st = $pdo->prepare("DELETE FROM votes WHERE vote_id = ?");
     $st->execute([(int)$voteId]);
     $_SESSION['flash_success'] = "Upvote removed.";
 } else {
-    /* Add vote */
+    // Add vote
     $st = $pdo->prepare("
         INSERT INTO votes (issue_id, user_id, value, created_at)
         VALUES (?, ?, 1, NOW())

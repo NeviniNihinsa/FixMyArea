@@ -24,7 +24,7 @@ $back = ($role === 'worker')
 try {
     if ($mode === 'all') {
         $st = $pdo->prepare("
-          UPDATE notification
+          UPDATE notifications
           SET is_read=1, read_at=NOW()
           WHERE user_id=? AND is_read=0
         ");
@@ -35,7 +35,7 @@ try {
         exit;
     }
 
-    // mode === 'one'
+    
     $notificationId = (int)($_POST['notification_id'] ?? 0);
     if ($notificationId <= 0) {
         $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Invalid notification.'];
@@ -43,9 +43,9 @@ try {
         exit;
     }
 
-    // SECURITY: only update if it belongs to current user
+    // only update if it belongs to current user
     $st = $pdo->prepare("
-      UPDATE notification
+      UPDATE notifications
       SET is_read=1, read_at=NOW()
       WHERE notification_id=? AND user_id=? 
       LIMIT 1

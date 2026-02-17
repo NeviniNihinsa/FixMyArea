@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-/** Guest-only guard (block logged-in users from login/register)*/
+//block logged-in users from login/register
 
 require_once __DIR__ . '/constants.php';
 
-/**Always ensure session is started before using $_SESSION*/
+//Always ensure session is started before using $_SESSION
 function ensure_session(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
@@ -13,28 +13,28 @@ function ensure_session(): void
     }
 }
 
-/**True if user is logged in*/
+//True if user is logged in
 function is_logged_in(): bool
 {
     ensure_session();
     return !empty($_SESSION['user_id']);
 }
 
-/**Get current user id from session*/
+//Get current user id from session
 function current_user_id(): ?int
 {
     ensure_session();
     return isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 }
 
-/**Get current user role from session*/
+//Get current user role from session
 function current_role(): string
 {
     ensure_session();
     return $_SESSION['role'] ?? 'GUEST';
 }
 
-/**Redirect user to the correct dashboard by role*/
+//Redirect user to the correct dashboard by role
 function redirect_by_role(): void
 {
     $role = current_role();
@@ -57,13 +57,13 @@ function redirect_by_role(): void
             exit;
 
         default:
-            // If role missing/corrupt, force logout (safer)
+            // If role missing/corrupt, force logout 
             header("Location: " . BASE_URL . "/auth/logout.php");
             exit;
     }
 }
 
-/**Guest-only guard*/
+//Guest-only guard
 function guest_only(): void
 {
     if (is_logged_in()) {
@@ -71,7 +71,7 @@ function guest_only(): void
     }
 }
 
-/** If not logged in, redirect to login.*/
+// If not logged in, redirect to login.
 function require_login(): void
 {
     if (!is_logged_in()) {
@@ -80,7 +80,7 @@ function require_login(): void
     }
 }
 
-/**Require one of the given roles*/
+//Require one of the given roles
 function require_roles(array $roles): void
 {
     require_login();
@@ -95,7 +95,7 @@ function require_roles(array $roles): void
     }
 }
 
-/** Convenience role guards*/
+// Convenience role guards
 function require_admin(): void
 {
     require_roles(['ADMIN']);
@@ -116,7 +116,7 @@ function require_citizen(): void
     require_roles(['CITIZEN']);
 }
 
-/** Login session setter */
+//Login session setter
 function login_user(int $userId, string $role, string $name = '', string $email = ''): void
 {
     ensure_session();
@@ -127,12 +127,12 @@ function login_user(int $userId, string $role, string $name = '', string $email 
     $_SESSION['user_id'] = $userId;
     $_SESSION['role'] = strtoupper($role);
 
-    // Optional profile fields (helpful later for navbar)
+    // Optional profile fields 
     if ($name !== '') $_SESSION['name'] = $name;
     if ($email !== '') $_SESSION['email'] = $email;
 }
 
-/** Logout helper*/
+// Logout helper
 function logout_user(): void
 {
     ensure_session();

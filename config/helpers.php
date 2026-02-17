@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/*Redirect Helper*/
+//Redirect Helper
 function redirect(string $path): void
 {
     header("Location: " . BASE_URL . $path);
@@ -23,25 +23,25 @@ function error(string $key): string
     return $_SESSION['form_errors'][$key] ?? '';
 }
 
-/* Clear Old Form Data*/
+//Clear Old Form Data
 function clear_form_data(): void
 {
     unset($_SESSION['old'], $_SESSION['form_errors']);
 }
 
-/*NIC Validation*/
+//NIC Validation
 function is_valid_nic(string $nic): bool
 {
     return (bool) preg_match('/^(\d{9}[vVxX]|\d{12})$/', $nic);
 }
 
-/*Email Validation*/
+//Email Validation
 function is_valid_email(string $email): bool
 {
     return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
 }
 
-/*Password Strength Minimum 6 chars (can increase later)*/
+//Password Strength Minimum 6 chars 
 function is_strong_password(string $password): bool
 {
     return strlen($password) >= 6;

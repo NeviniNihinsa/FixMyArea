@@ -33,6 +33,17 @@ $flashError   = $_SESSION['flash_error'] ?? '';
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 ?>
 
+<style>
+  .area-readonly{
+    background: #e9ecef !important;
+    color: #000 !important;
+    border-color: rgba(0,0,0,0.15) !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000 !important; /* important for Chrome */
+    cursor: not-allowed;
+  }
+</style>
+
 <div class="container py-4">
   <h2 class="fw-bold mb-3">Report an Issue</h2>
 
@@ -88,7 +99,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
           <!-- Area (auto from user, but keep hidden id) -->
           <div class="mb-3">
             <label class="form-label">Your Area</label>
-            <input type="text" class="form-control" value="<?= htmlspecialchars($myAreaName ?: 'Not set') ?>" disabled>
+            <input type="text" class="form-control area-readonly" value="<?= htmlspecialchars($myAreaName ?: 'Not set') ?>" readonly>
             <input type="hidden" name="area_id" value="<?= (int)$myAreaId ?>">
             <div class="field-error"><?= htmlspecialchars($errors['area_id'] ?? '') ?></div>
           </div>
