@@ -9,7 +9,7 @@ require_roles(['admin']);
 
 $page_title = 'Manage Issues - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar_auth.php';
+require_once __DIR__ . '/../includes/navbar.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
