@@ -9,7 +9,7 @@ require_roles(['admin']);
 
 $page_title = 'Analytics & Reports - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar_auth.php';
+require_once __DIR__ . '/../includes/navbar.php';
 
 /**
  * FILTERS (match low-fi)

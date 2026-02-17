@@ -9,7 +9,7 @@ require_roles(['admin']);
 
 $page_title = 'View Issue - Admin';
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar_auth.php';
+require_once __DIR__ . '/../includes/navbar.php';
 
 $adminId = (int)($_SESSION['user_id'] ?? 0);
 
