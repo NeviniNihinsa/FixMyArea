@@ -46,9 +46,7 @@ $old = [
     'area_id' => (string)$areaId,
 ];
 
-/** --------------------------
- * VALIDATIONS
- * -------------------------- */
+//Validations
 
 // Name
 if ($name === '' || mb_strlen($name) < 2) {
@@ -57,14 +55,14 @@ if ($name === '' || mb_strlen($name) < 2) {
     $errors['name'] = "Name must be 80 characters or less.";
 }
 
-// NIC (simple, safe validation)
+// NIC safe validation
 if ($nic === '' || mb_strlen($nic) < 5) {
     $errors['nic'] = "NIC is required.";
 } elseif (mb_strlen($nic) > 20) {
     $errors['nic'] = "NIC must be 20 characters or less.";
 }
 
-// Phone (optional but if present must look valid)
+// Phone 
 if ($phone !== '') {
     // Allow +, digits, spaces, -
     if (!preg_match('/^[0-9+\-\s]{7,15}$/', $phone)) {
@@ -72,7 +70,7 @@ if ($phone !== '') {
     }
 }
 
-// DOB (optional but if present must be a valid date and not future)
+// DOB 
 if ($dob !== '') {
     $dt = DateTime::createFromFormat('Y-m-d', $dob);
     $valid = $dt && $dt->format('Y-m-d') === $dob;
@@ -86,15 +84,15 @@ if ($dob !== '') {
     }
 }
 
-// Gender (optional, but if given must be allowed)
+// Gender 
 $allowedGender = ['male', 'female', 'other', ''];
 if (!in_array($gender, $allowedGender, true)) {
     $errors['gender'] = "Invalid gender value.";
 }
 
-// Area (required for citizen (and recommended for others))
+// Area 
 if ($areaId <= 0) {
-    // citizen must select area to route issues correctly
+    // citizen must select area 
     if ($role === 'citizen') {
         $errors['area_id'] = "Please select your area.";
     }
@@ -107,7 +105,7 @@ if ($areaId <= 0) {
     }
 }
 
-// If validation errors -> return
+// If validation errors 
 if ($errors) {
     $_SESSION['form_errors'] = $errors;
     $_SESSION['old'] = $old;
@@ -115,11 +113,9 @@ if ($errors) {
     exit;
 }
 
-/** --------------------------
- * DB UPDATE
- * -------------------------- */
+//DB UPDATE
 try {
-    // NIC should be unique (if your DB expects it unique). This prevents duplicates.
+    // NIC should be unique 
     $st = $pdo->prepare("SELECT user_id FROM users WHERE nic = ? AND user_id <> ? LIMIT 1");
     $st->execute([$nic, $userId]);
     if ($st->fetch(PDO::FETCH_ASSOC)) {
@@ -143,7 +139,7 @@ try {
 
     $stmt->execute([$name, $nic, $phone, $dobDb, $genderDb, $areaDb, $userId]);
 
-    // Update session name (navbar greeting)
+    // Update session name 
     $_SESSION['name'] = $name;
 
     $_SESSION['flash_success'] = "Profile updated successfully.";

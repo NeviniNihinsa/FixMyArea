@@ -1,13 +1,11 @@
--- FixMyArea seed.sql
-
--- Areas (based on your low-fidelities)
+-- Areas 
 INSERT INTO areas (area_id, area_name) VALUES
 (1, 'Colombo Fort'),
 (2, 'Nugegoda'),
 (3, 'Bambalapitiya'),
 (4, 'Slave Island');
 
--- Categories (adjust anytime later)
+-- Categories 
 INSERT INTO issue_categories (category_id, category_name) VALUES
 (1, 'Road'),
 (2, 'Water'),
@@ -15,7 +13,7 @@ INSERT INTO issue_categories (category_id, category_name) VALUES
 (4, 'Garbage'),
 (5, 'Drainage');
 
--- Demo users (bcrypt hashes)
+-- Demo users 
 -- Admin@123
 INSERT INTO users (user_id, name, email, nic, dob, phone, gender, address, area_id, role, password_hash, status)
 VALUES

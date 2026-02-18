@@ -11,7 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // Remove all session variables
 $_SESSION = [];
 
-// Destroy session cookie (VERY professional step)
+// Destroy session cookie 
 if (ini_get("session.use_cookies")) {
 
     $params = session_get_cookie_params();
@@ -30,6 +30,6 @@ if (ini_get("session.use_cookies")) {
 // Finally destroy session
 session_destroy();
 
-/*Redirect to Login*/
+//Redirect to Login
 header("Location: " . BASE_URL . "/auth/login.php");
 exit;

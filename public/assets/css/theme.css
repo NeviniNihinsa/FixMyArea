@@ -55,7 +55,7 @@ footer{
 
 /* Login-only layout */
 .login-wrap{
-  min-height: calc(100vh - 120px); /* reduced gap */
+  min-height: calc(100vh - 120px); 
   display:flex;
   align-items:center;
 }

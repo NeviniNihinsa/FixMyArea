@@ -1,6 +1,3 @@
--- FixMyArea schema.sql
-
-
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS notifications;
@@ -43,7 +40,7 @@ CREATE TABLE users (
   address VARCHAR(255) NULL,
 
   area_id INT NULL,
-  role ENUM('citizen','field worker','local authority','admin') NOT NULL DEFAULT 'citizen',
+  role ENUM('citizen','worker','authority','admin') NOT NULL DEFAULT 'citizen',
   password_hash VARCHAR(255) NOT NULL,
 
   status ENUM('active','inactive') NOT NULL DEFAULT 'active',
@@ -254,7 +251,7 @@ CREATE TABLE feedback_ratings (
   CONSTRAINT uq_feedback_one_per_issue UNIQUE (issue_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 11) notifications (in-app)
+-- 11) notifications 
 CREATE TABLE notifications (
   notification_id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,

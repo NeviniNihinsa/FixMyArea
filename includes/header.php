@@ -16,7 +16,7 @@ $page_title = $page_title ?? 'FixMyArea';
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title><?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?></title>
 
-  <!-- Google Font -->
+  <!-- Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">

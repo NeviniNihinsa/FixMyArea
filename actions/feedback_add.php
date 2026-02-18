@@ -38,7 +38,7 @@ if (mb_strlen($text) > 500) {
     exit;
 }
 
-/* Ensure issue exists */
+//Ensure issue exists
 $st = $pdo->prepare("SELECT 1 FROM issues WHERE issue_id = ? LIMIT 1");
 $st->execute([$issueId]);
 if (!$st->fetchColumn()) {
@@ -47,7 +47,7 @@ if (!$st->fetchColumn()) {
     exit;
 }
 
-/* Prevent duplicate feedback by same citizen */
+//Prevent duplicate feedback by same citizen
 $st = $pdo->prepare("SELECT 1 FROM feedback_ratings WHERE issue_id = ? AND citizen_user_id = ? LIMIT 1");
 $st->execute([$issueId, $userId]);
 if ($st->fetchColumn()) {
@@ -56,7 +56,7 @@ if ($st->fetchColumn()) {
     exit;
 }
 
-/* Try to link worker/authority from assignments (if assignment exists) */
+// Try to link worker/authority from assignments (if assignment exists) 
 $authorityUserId = null;
 $workerUserId    = null;
 
@@ -74,7 +74,7 @@ if ($as) {
     $authorityUserId = !empty($as['assigned_by_authority_id']) ? (int)$as['assigned_by_authority_id'] : null;
 }
 
-/* Insert feedback */
+// Insert feedback
 $st = $pdo->prepare("
     INSERT INTO feedback_ratings
         (issue_id, citizen_user_id, authority_user_id, field_worker_id,
