@@ -2,17 +2,22 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config/auth.php';
+require_once __DIR__ . '/../config/constants.php';
+
 guest_only();
+
+$page_title = 'Login - FixMyArea';
 
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar_auth.php';
 
+if (session_status() === PHP_SESSION_NONE) session_start();
+
 $errors = $_SESSION['form_errors'] ?? [];
-$old = $_SESSION['old'] ?? [];
+$old    = $_SESSION['old'] ?? [];
 unset($_SESSION['form_errors'], $_SESSION['old']);
 ?>
 
-<!-- IMPORTANT: this wrapper makes footer stick correctly -->
 <div class="app-container">
   <div class="container login-wrap py-4">
     <div class="row w-100 justify-content-center align-items-center g-4">
@@ -57,7 +62,6 @@ unset($_SESSION['form_errors'], $_SESSION['old']);
                 name="password"
                 class="form-control"
                 required
-                minlength="6"
               >
               <div class="field-error"><?= htmlspecialchars($errors['password'] ?? '') ?></div>
             </div>

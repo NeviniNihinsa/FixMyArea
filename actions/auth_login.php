@@ -1,84 +1,95 @@
 <?php
 declare(strict_types=1);
 
-/*validation | password verify|session creation| role redirect*/
-
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
-require_once __DIR__ . '/../config/auth.php';
 
-ensure_session();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-$email = trim($_POST['email'] ?? '');
-$password = $_POST['password'] ?? '';
+function back_to_login(): void {
+    header("Location: " . BASE_URL . "/auth/login.php");
+    exit;
+}
 
-$errors = [];
+function set_error(string $key, string $msg): void {
+    $_SESSION['form_errors'][$key] = $msg;
+}
 
-/*Validation*/
+function set_old(array $data): void {
+    $_SESSION['old'] = $data;
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    back_to_login();
+}
+
+$email = trim((string)($_POST['email'] ?? ''));
+$password = (string)($_POST['password'] ?? '');
+
+set_old(['email' => $email]);
+
+$_SESSION['form_errors'] = [];
 
 if ($email === '') {
-    $errors['email'] = "Email is required.";
+    set_error('email', 'Email is required.');
 }
-elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $errors['email'] = "Enter a valid email.";
+if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    set_error('email', 'Enter a valid email.');
 }
-
 if ($password === '') {
-    $errors['password'] = "Password is required.";
+    set_error('password', 'Password is required.');
 }
 
-/*If validation fails -> back to login*/
+if (!empty($_SESSION['form_errors'])) {
+    back_to_login();
+}
 
-if (!empty($errors)) {
+try {
+    $st = $pdo->prepare("
+        SELECT user_id, name, email, role, status, area_id, password_hash
+        FROM users
+        WHERE email = ?
+        LIMIT 1
+    ");
+    $st->execute([$email]);
+    $user = $st->fetch(PDO::FETCH_ASSOC);
 
-    $_SESSION['form_errors'] = $errors;
-    $_SESSION['old'] = ['email' => $email];
+    if (!$user || !password_verify($password, (string)$user['password_hash'])) {
+        set_error('general', 'Invalid email or password.');
+        back_to_login();
+    }
 
-    header("Location: " . BASE_URL . "/auth/login.php");
+    if ((string)$user['status'] !== 'active') {
+        set_error('general', 'Your account is inactive. Please contact admin.');
+        back_to_login();
+    }
+
+    // ✅ set session
+    $_SESSION['user_id'] = (int)$user['user_id'];
+    $_SESSION['name']    = (string)$user['name'];
+    $_SESSION['role']    = (string)$user['role']; // raw DB role: citizen/field worker/local authority/admin
+    $_SESSION['area_id'] = (int)($user['area_id'] ?? 0);
+
+    // ✅ correct redirect mapping
+    $role = strtolower(trim((string)$user['role']));
+
+    $redirect = BASE_URL . '/citizen/home.php';
+    if ($role === 'admin') {
+        $redirect = BASE_URL . '/admin/home.php';
+    } elseif ($role === 'local authority') {
+        $redirect = BASE_URL . '/authority/home.php';
+    } elseif ($role === 'field worker') {
+        $redirect = BASE_URL . '/worker/home.php';
+    } elseif ($role === 'citizen') {
+        $redirect = BASE_URL . '/citizen/home.php';
+    }
+
+    header("Location: " . $redirect);
     exit;
+
+} catch (Throwable $e) {
+    set_error('general', 'Server error. Please try again.');
+    back_to_login();
 }
-
-/*Fetch User*/
-
-$stmt = $pdo->prepare("
-    SELECT user_id, name, email, role, password_hash, status
-    FROM users
-    WHERE email = ?
-    LIMIT 1
-");
-
-$stmt->execute([$email]);
-
-$user = $stmt->fetch();
-
-/*Verify User*/
-
-if (
-    !$user ||
-    $user['status'] !== 'active' ||
-    !password_verify($password, $user['password_hash'])
-) {
-
-    $_SESSION['form_errors'] = [
-        'general' => "Invalid email or password."
-    ];
-
-    $_SESSION['old'] = ['email' => $email];
-
-    header("Location: " . BASE_URL . "/auth/login.php");
-    exit;
-}
-
-/* Use centralized session creator*/
-
-login_user(
-    (int)$user['user_id'],
-    strtoupper($user['role']), // normalize role
-    $user['name'],
-    $user['email']
-);
-
-/*Redirect by Role*/
-
-redirect_by_role();
-exit;
