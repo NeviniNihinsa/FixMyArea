@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/*validation | password verify|session creation| role redirect*/
+//validation | password verify|session creation| role redirect
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
@@ -14,7 +14,7 @@ $password = $_POST['password'] ?? '';
 
 $errors = [];
 
-/*Validation*/
+//Validation
 
 if ($email === '') {
     $errors['email'] = "Email is required.";
@@ -27,7 +27,7 @@ if ($password === '') {
     $errors['password'] = "Password is required.";
 }
 
-/*If validation fails -> back to login*/
+//If validation fails back to login
 
 if (!empty($errors)) {
 
@@ -38,7 +38,7 @@ if (!empty($errors)) {
     exit;
 }
 
-/*Fetch User*/
+//Fetch User
 
 $stmt = $pdo->prepare("
     SELECT user_id, name, email, role, password_hash, status
@@ -51,7 +51,7 @@ $stmt->execute([$email]);
 
 $user = $stmt->fetch();
 
-/*Verify User*/
+//Verify User
 
 if (
     !$user ||
@@ -69,7 +69,7 @@ if (
     exit;
 }
 
-/* Use centralized session creator*/
+// Use centralized session creator
 
 login_user(
     (int)$user['user_id'],
@@ -78,7 +78,7 @@ login_user(
     $user['email']
 );
 
-/*Redirect by Role*/
+//Redirect by Role
 
 redirect_by_role();
 exit;

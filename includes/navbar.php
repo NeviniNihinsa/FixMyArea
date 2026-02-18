@@ -9,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $isLoggedIn = !empty($_SESSION['user_id']);
 
-// normalize role (fixes: "Citizen", "citizen ", "LOCAL AUTHORITY", etc.)
+// normalize role
 $roleRaw = (string)($_SESSION['role'] ?? 'guest');
 $role = strtolower(trim($roleRaw));
 
@@ -63,10 +63,7 @@ $menus = [
     ],
 ];
 
-/**
- * Notifications: only citizen + worker
- * Link goes to role-specific notifications page
- */
+//Notifications: only citizen + worker
 $notifLink = '';
 if ($role === 'citizen') $notifLink = BASE_URL . '/citizen/notifications.php';
 if ($role === 'worker')  $notifLink = BASE_URL . '/worker/notifications.php';
@@ -90,7 +87,7 @@ if ($isLoggedIn && $notifLink !== '' && $userId > 0) {
   <div class="container-fluid px-3">
 
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= $homeLink ?>">
-      <img src="<?= BASE_URL ?>/public/assets/img/logo.png"
+      <img src="<?= BASE_URL ?>/public/assets/img/logo1.png"
            alt="FixMyArea"
            style="width:34px;height:34px;object-fit:contain;"
            onerror="this.style.display='none'">
@@ -111,30 +108,32 @@ if ($isLoggedIn && $notifLink !== '' && $userId > 0) {
 
         <?php else: ?>
 
-          <?php foreach (($menus[$role] ?? []) as [$label, $path]): ?>
-            <li class="nav-item d-none d-lg-flex align-items-center px-1 text-muted">|</li>
-            <li class="nav-item">
-              <a class="nav-link <?= nav_active('/' . $path) ?>" href="<?= BASE_URL . '/' . $path ?>">
-                <?= htmlspecialchars($label) ?>
-              </a>
-            </li>
-          <?php endforeach; ?>
+          <?php $i = 0; foreach (($menus[$role] ?? []) as [$label, $path]): ?>
+  <?php if ($i > 0): ?>
+    <li class="nav-item d-none d-lg-flex align-items-center px-1 text-muted">|</li>
+  <?php endif; ?>
+  <li class="nav-item">
+    <a class="nav-link <?= nav_active('/' . $path) ?>" href="<?= BASE_URL . '/' . $path ?>">
+      <?= htmlspecialchars($label) ?>
+    </a>
+  </li>
+<?php $i++; endforeach; ?>
 
           <li class="nav-item d-none d-lg-flex align-items-center px-2 text-muted">|</li>
 
           <!-- Bell only for citizen + worker -->
           <?php if ($notifLink !== ''): ?>
             <li class="nav-item d-flex align-items-center ms-lg-2 mt-2 mt-lg-0">
-              <a class="btn btn-sm btn-outline-light position-relative"
-                 href="<?= $notifLink ?>" title="Notifications" aria-label="Notifications">
-                <i class="bi bi-bell"></i>
+              <a class="nav-link position-relative px-2"
+           href="<?= $notifLink ?>" title="Notifications" aria-label="Notifications">
+            <i class="bi bi-bell fs-5"></i>
 
-                <?php if ($unreadCount > 0): ?>
-                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                    <?= $unreadCount ?>
-                  </span>
-                <?php endif; ?>
-              </a>
+  <?php if ($unreadCount > 0): ?>
+    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+      <?= $unreadCount ?>
+    </span>
+  <?php endif; ?>
+</a>
             </li>
 
             <li class="nav-item d-none d-lg-flex align-items-center px-2 text-muted">|</li>

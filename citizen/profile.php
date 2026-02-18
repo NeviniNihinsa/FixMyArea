@@ -126,6 +126,24 @@ $areaId = (int)($old['area_id'] ?? ($user['area_id'] ?? 0));
     flex-wrap: wrap;
   }
 
+
+.form-select,
+.form-control {
+  color: rgba(241,246,246,0.95) !important;
+}
+
+/* Dropdown list items */
+.form-select option {
+  color: #ffffff !important;
+  background-color: #606262 !important;
+}
+
+/* Disabled select still readable */
+.form-select:disabled {
+  opacity: 1 !important;
+  color: rgba(241,246,246,0.95) !important;
+}
+
   /* mobile */
   @media (max-width: 576px){
     .form-grid{ grid-template-columns: 1fr; }

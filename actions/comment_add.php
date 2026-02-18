@@ -30,7 +30,7 @@ if (mb_strlen($text) > 500) {
     exit;
 }
 
-/* Ensure issue exists */
+//Ensure issue exists 
 $st = $pdo->prepare("SELECT 1 FROM issues WHERE issue_id = ? LIMIT 1");
 $st->execute([$issueId]);
 if (!$st->fetchColumn()) {
@@ -39,7 +39,7 @@ if (!$st->fetchColumn()) {
     exit;
 }
 
-/* Insert comment */
+//Insert comment
 $st = $pdo->prepare("
     INSERT INTO comments (issue_id, user_id, comment_text, created_at)
     VALUES (?, ?, ?, NOW())

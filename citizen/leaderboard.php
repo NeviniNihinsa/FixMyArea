@@ -26,15 +26,6 @@ if ($areaId === 0 && $myAreaId > 0) {
 /** Areas dropdown */
 $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
-/**
- * Definitions (simple + defendable):
- * - Top Field Worker: most COMPLETED assignments (assignments.assignment_status) in selected area
- * - Top Local Authority: most status-history actions (issue_status_history.changed_by_user_id) in selected area
- * - Most Responsible Citizen: most issues reported in selected area
- *
- * NOTE: "of the month" can be added later by filtering created_at within current month.
- */
-
 $params = [];
 $areaWhereIssues = "";
 $areaWhereAssignments = "";
@@ -118,7 +109,7 @@ if ($areaId > 0) {
   }
 }
 
-/** helpers (fix: accept ?array) */
+/** helpers  */
 function safeName(?array $row): string {
   return (!empty($row['name'])) ? (string)$row['name'] : '—';
 }

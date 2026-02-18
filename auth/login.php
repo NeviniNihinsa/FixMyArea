@@ -12,19 +12,11 @@ $old = $_SESSION['old'] ?? [];
 unset($_SESSION['form_errors'], $_SESSION['old']);
 ?>
 
-<!-- IMPORTANT: this wrapper makes footer stick correctly -->
+<!-- wrapper makes footer stick correctly -->
 <div class="app-container">
   <div class="container login-wrap py-4">
     <div class="row w-100 justify-content-center align-items-center g-4">
 
-      <!-- LEFT (logo + brand) hidden on small -->
-      <div class="col-lg-6 d-none d-lg-flex justify-content-center">
-        <div class="text-center">
-          <img src="<?= BASE_URL ?>/public/assets/img/logo.png" alt="FixMyArea" style="max-width: 260px; height:auto;">
-          <h1 class="mt-3 fw-bold">FixMyArea</h1>
-          <p class="text-muted">Report issues. Track progress. Improve your area.</p>
-        </div>
-      </div>
 
       <!-- RIGHT (form) -->
       <div class="col-12 col-md-8 col-lg-5">
@@ -39,26 +31,37 @@ unset($_SESSION['form_errors'], $_SESSION['old']);
           <form method="POST" action="<?= BASE_URL ?>/actions/auth_login.php" novalidate id="loginForm">
 
             <div class="mb-3">
-              <label class="form-label">Email</label>
+              <label class="form-label" for="email">Email</label>
               <input
+                id="email"
                 type="email"
                 name="email"
                 class="form-control"
                 value="<?= htmlspecialchars($old['email'] ?? '') ?>"
                 required
+                autocomplete="username"
               >
               <div class="field-error"><?= htmlspecialchars($errors['email'] ?? '') ?></div>
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Password</label>
-              <input
-                type="password"
-                name="password"
-                class="form-control"
-                required
-                minlength="6"
-              >
+              <label class="form-label" for="password">Password</label>
+
+              <div class="input-group">
+                <input
+                  id="password"
+                  type="password"
+                  name="password"
+                  class="form-control"
+                  required
+                  minlength="6"
+                  autocomplete="current-password"
+                >
+                <button class="btn btn-outline-secondary" type="button" id="togglePasswordBtn" aria-label="Show password">
+                  Show
+                </button>
+              </div>
+
               <div class="field-error"><?= htmlspecialchars($errors['password'] ?? '') ?></div>
             </div>
 
@@ -81,21 +84,40 @@ unset($_SESSION['form_errors'], $_SESSION['old']);
 <script>
 (() => {
   const form = document.getElementById('loginForm');
+  if (!form) return;
+
+  // Show/Hide password
+  const pw = document.getElementById('password');
+  const btn = document.getElementById('togglePasswordBtn');
+  if (pw && btn) {
+    btn.addEventListener('click', () => {
+      const isHidden = pw.type === 'password';
+      pw.type = isHidden ? 'text' : 'password';
+      btn.textContent = isHidden ? 'Hide' : 'Show';
+      btn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+    });
+  }
+
+  // Client-side validation (fixed to work with input-group)
+  function setFieldError(inputName, msg) {
+    const input = form.querySelector(`[name="${inputName}"]`);
+    if (!input) return;
+    const wrap = input.closest('.mb-3');
+    const err = wrap ? wrap.querySelector('.field-error') : null;
+    if (err) err.textContent = msg;
+  }
 
   form.addEventListener('submit', function (e) {
-    const email = form.email.value.trim();
-    const password = form.password.value;
+    const email = (form.email?.value || '').trim();
+    const password = form.password?.value || '';
 
     let ok = true;
     form.querySelectorAll('.field-error').forEach(el => el.textContent = '');
 
-    const emailErr = form.querySelector('[name="email"]').nextElementSibling;
-    const passErr  = form.querySelector('[name="password"]').nextElementSibling;
+    if (!email) { setFieldError('email', "Email is required."); ok = false; }
+    else if (!/^\S+@\S+\.\S+$/.test(email)) { setFieldError('email', "Enter a valid email."); ok = false; }
 
-    if (!email) { emailErr.textContent = "Email is required."; ok = false; }
-    else if (!/^\S+@\S+\.\S+$/.test(email)) { emailErr.textContent = "Enter a valid email."; ok = false; }
-
-    if (!password) { passErr.textContent = "Password is required."; ok = false; }
+    if (!password) { setFieldError('password', "Password is required."); ok = false; }
 
     if (!ok) e.preventDefault();
   });
