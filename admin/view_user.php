@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+ini_set('display_errors', '1');          // remove later
+ini_set('display_startup_errors', '1');  // remove later
+error_reporting(E_ALL);                 // remove later
+
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
@@ -11,117 +15,136 @@ $page_title = 'View User - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
-$userId = (int)($_GET['id'] ?? 0);
+$userId = (int)($_GET['user_id'] ?? 0);
 if ($userId <= 0) {
-    header("Location: " . BASE_URL . "/admin/manage_users.php");
-    exit;
+  echo "<div class='container py-4'><div class='alert alert-danger'>Invalid user id.</div></div>";
+  require_once __DIR__ . '/../includes/footer.php';
+  exit;
 }
 
-$stmt = $pdo->prepare("
-    SELECT 
-        u.user_id,
-        u.name,
-        u.email,
-        u.nic,
-        u.phone,
-        u.dob,
-        u.gender,
-        u.address,
-        u.role,
-        u.status,
-        u.created_at,
-        a.area_name
-    FROM users u
-    LEFT JOIN areas a ON a.area_id = u.area_id
-    WHERE u.user_id = ?
-    LIMIT 1
+// Fetch user + area_name
+$st = $pdo->prepare("
+  SELECT
+    u.user_id,
+    u.name,
+    u.email,
+    u.nic,
+    u.dob,
+    u.phone,
+    u.gender,
+    u.address,
+    u.area_id,
+    u.role,
+    u.status,
+    u.created_at,
+    a.area_name
+  FROM users u
+  LEFT JOIN areas a ON a.area_id = u.area_id
+  WHERE u.user_id = ?
+  LIMIT 1
 ");
-$stmt->execute([$userId]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+$st->execute([$userId]);
+$u = $st->fetch(PDO::FETCH_ASSOC);
 
-if (!$user) {
-    echo '<div class="container py-4"><div class="alert alert-danger">User not found.</div></div>';
-    require_once __DIR__ . '/../includes/footer_internal.php';
-    exit;
+if (!$u) {
+  echo "<div class='container py-4'><div class='alert alert-warning'>User not found.</div></div>";
+  require_once __DIR__ . '/../includes/footer.php';
+  exit;
 }
 
-function h($v): string {
-    return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
-}
+function h($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+
+$roleLabel = match (strtolower((string)$u['role'])) {
+  'citizen' => 'Citizen',
+  'worker' => 'Field Worker',
+  'field worker' => 'Field Worker',
+  'authority' => 'Local Authority',
+  'local authority' => 'Local Authority',
+  'admin' => 'Admin',
+  default => (string)$u['role'],
+};
+
+$statusLabel = (strtolower((string)$u['status']) === 'inactive') ? 'Inactive' : 'Active';
 ?>
 
-<div class="container py-4 app-container">
-
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold mb-0">User Details</h2>
-    <a class="btn btn-outline-light btn-sm" href="<?= BASE_URL ?>/admin/manage_users.php">Back</a>
+<div class="container py-4">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <h2 class="fw-bold mb-0">Display User</h2>
+    <a href="<?= BASE_URL ?>/admin/manage_users.php" class="btn btn-outline-brand btn-sm">Back</a>
   </div>
 
   <div class="card-dark p-4">
+    <div class="row g-4">
 
-    <div class="row g-3">
+      <!-- Left column: fields -->
+      <div class="col-12 col-lg-8">
+        <div class="row g-3">
 
-      <div class="col-md-6">
-        <strong>Name:</strong><br>
-        <?= h($user['name']) ?>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Role</label>
+            <input class="form-control" value="<?= h($roleLabel) ?>" readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Status</label>
+            <input class="form-control" value="<?= h($statusLabel) ?>" readonly>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Name</label>
+            <input class="form-control" value="<?= h($u['name']) ?>" readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Email</label>
+            <input class="form-control" value="<?= h($u['email']) ?>" readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">NIC</label>
+            <input class="form-control" value="<?= h($u['nic']) ?>" readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Phone</label>
+            <input class="form-control" value="<?= h($u['phone'] ?? '') ?>" readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Date of Birth</label>
+            <input class="form-control" value="<?= h($u['dob'] ?? '') ?>" readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Gender</label>
+            <input class="form-control" value="<?= h($u['gender'] ?? '') ?>" readonly>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Area</label>
+            <input class="form-control" value="<?= h($u['area_name'] ?? '') ?>" readonly>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Address</label>
+            <input class="form-control" value="<?= h($u['address'] ?? '') ?>" readonly>
+          </div>
+
+        </div>
       </div>
 
-      <div class="col-md-6">
-        <strong>Email:</strong><br>
-        <?= h($user['email']) ?>
-      </div>
-
-      <div class="col-md-6">
-        <strong>NIC:</strong><br>
-        <?= h($user['nic']) ?>
-      </div>
-
-      <div class="col-md-6">
-        <strong>Phone:</strong><br>
-        <?= h($user['phone'] ?? '-') ?>
-      </div>
-
-      <div class="col-md-6">
-        <strong>Date of Birth:</strong><br>
-        <?= h($user['dob'] ?? '-') ?>
-      </div>
-
-      <div class="col-md-6">
-        <strong>Gender:</strong><br>
-        <?= h($user['gender'] ?? '-') ?>
-      </div>
-
-      <div class="col-md-6">
-        <strong>Role:</strong><br>
-        <?= h($user['role']) ?>
-      </div>
-
-      <div class="col-md-6">
-        <strong>Status:</strong><br>
-        <span class="badge <?= $user['status'] === 'active' ? 'bg-success' : 'bg-danger' ?>">
-            <?= h($user['status']) ?>
-        </span>
-      </div>
-
-      <div class="col-md-6">
-        <strong>Area:</strong><br>
-        <?= h($user['area_name'] ?? '-') ?>
-      </div>
-
-      <div class="col-md-6">
-        <strong>Registered On:</strong><br>
-        <?= h($user['created_at']) ?>
-      </div>
-
-      <div class="col-12">
-        <strong>Address:</strong><br>
-        <?= h($user['address'] ?? '-') ?>
+      <!-- Right column: placeholder avatar (matches low-fi circle) -->
+      <div class="col-12 col-lg-4">
+        <div class="d-flex flex-column align-items-center justify-content-center h-100">
+          <div style="width:140px;height:140px;border-radius:50%;border:3px solid rgba(241,246,246,0.6);display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-person" style="font-size:52px;opacity:.75;"></i>
+          </div>
+          <div class="mt-3 text-muted small">User ID: <?= (int)$u['user_id'] ?></div>
+        </div>
       </div>
 
     </div>
-
   </div>
-
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
