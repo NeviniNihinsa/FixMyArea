@@ -9,8 +9,8 @@ body{
   display:flex;
   flex-direction:column;
   font-family: "Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: radial-gradient(1200px 800px at -63% 10%, var(--brand-700), var(--bg));
-  color: var(--text-100);
+  background: radial-gradient(1200px 800px at -301% 10%, var(--brand-700), var(--bg));
+  color: var(--text-700);
 }
 
 .app-container{
@@ -32,10 +32,13 @@ footer{
   --accent-600:#34AB90;
 
   /* Neutrals */
-  --text-100:#F1F6F6;
+  --text-100:#404040;
   --text-300:#B3D8D6;
   --muted-400:#96AAAD;
   --muted-600:#4F696E;
+  --text-700: #dfdfdf;
+  --text-800: #bbbbbb;
+  --text-900: #999999;
 
   /* UI surfaces */
   --bg:#0F2E35;
@@ -70,14 +73,14 @@ footer{
 
 /* Inputs */
 .form-control, .form-select{
-  background: rgba(15,52,59,0.65);
+  background: rgb(132 175 183 / 65%);
   border: 1px solid var(--border);
   color: var(--text-100);
 }
 .form-control:focus, .form-select:focus{
   border-color: rgba(52,217,169,0.6);
   box-shadow: 0 0 0 0.2rem rgba(52,217,169,0.15);
-  background: rgba(15,52,59,0.75);
+  background: rgba(209, 247, 255, 0.75);
   color: var(--text-100);
 }
 .form-label{ color: var(--muted-400); }
@@ -111,7 +114,7 @@ a:hover{ color: var(--text-300); }
 /* Table  */
 .table-dark-custom{
   --bs-table-bg: transparent;
-  --bs-table-color: var(--text-100);
+  --bs-table-color: var(--text-800);
   border-color: var(--border);
 }
 .table-dark-custom th, .table-dark-custom td{
