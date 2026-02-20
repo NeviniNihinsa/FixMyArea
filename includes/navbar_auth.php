@@ -9,7 +9,9 @@ require_once __DIR__ . '/../config/constants.php';
   <div class="container-fluid px-3">
 
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= BASE_URL ?>/auth/login.php">
-      <img src="<?= BASE_URL ?>/public/assets/img/logo1.png" class="brand-logo" alt="FixMyArea"
+      
+      <img src="<?= BASE_URL ?>/public/assets/img/logo2.png" alt="FixMyArea"
+          style="height:40px;width:auto;object-fit:contain;"
            onerror="this.style.display='none'">
     </a>
 
