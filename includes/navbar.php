@@ -88,11 +88,11 @@ if ($isLoggedIn && $notifLink !== '' && $userId > 0) {
   <div class="container-fluid px-3">
 
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= $homeLink ?>">
-      <img src="<?= BASE_URL ?>/public/assets/img/logo1.png"
+      <img src="<?= BASE_URL ?>/public/assets/img/logo2.png"
            alt="FixMyArea"
-           style="width:34px;height:34px;object-fit:contain;"
+           style="height:40px;width:auto;object-fit:contain;"
            onerror="this.style.display='none'">
-      <span class="fw-semibold">FixMyArea</span>
+      
     </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
