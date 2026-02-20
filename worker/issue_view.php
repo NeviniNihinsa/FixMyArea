@@ -74,12 +74,12 @@ try { // if your PK name differs, this still works if created_at is enough
 }
 $history = $st->fetchAll(PDO::FETCH_ASSOC);
 
-// comments (if table exists)
+// comments (your table name is `comments`)
 $comments = [];
 try {
   $st = $pdo->prepare("
     SELECT c.comment_id, c.comment_text, c.created_at, u.name
-    FROM issue_comments c
+    FROM comments c
     LEFT JOIN users u ON u.user_id = c.user_id
     WHERE c.issue_id=?
     ORDER BY c.created_at DESC, c.comment_id DESC
@@ -90,10 +90,10 @@ try {
   $comments = [];
 }
 
-// upvotes count (if table exists)
+// upvotes count (your table name is `votes`, and you have `value` column)
 $upvotes = 0;
 try {
-  $st = $pdo->prepare("SELECT COUNT(*) FROM issue_votes WHERE issue_id=?");
+  $st = $pdo->prepare("SELECT COALESCE(SUM(value),0) FROM votes WHERE issue_id=?");
   $st->execute([$issueId]);
   $upvotes = (int)$st->fetchColumn();
 } catch (Throwable $e) {
@@ -173,7 +173,7 @@ function photoUrl(string $path): string {
               $hasProof = false;
               foreach ($photos as $p):
                 $t = (string)($p['photo_type'] ?? '');
-                if ($t !== 'PROOF_BEFORE' && $t !== 'PROOF_AFTER') continue;
+                if ($t !== 'FIX_PROOF') continue;
                 $hasProof = true;
             ?>
               <a href="<?= h(photoUrl((string)$p['file_path'])) ?>" target="_blank" rel="noreferrer">
@@ -207,8 +207,7 @@ function photoUrl(string $path): string {
             <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
             <select name="photo_type" class="form-select" style="min-width:220px;" required>
               <option value="">Proof type...</option>
-              <option value="PROOF_BEFORE">PROOF_BEFORE</option>
-              <option value="PROOF_AFTER">PROOF_AFTER</option>
+              <option value="FIX_PROOF">FIX_PROOF</option>
             </select>
             <input type="file" name="photo" class="form-control" accept="image/jpeg,image/png,image/webp" required>
             <button class="btn btn-outline-light" type="submit">Upload Proof</button>
