@@ -21,7 +21,7 @@ if ($userId <= 0) {
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
-// Fetch notifications (latest first)
+// Fetch notifications
 $st = $pdo->prepare("
   SELECT notification_id, issue_id, notification_type, title, message, action_url,
          is_read, created_at
@@ -103,10 +103,8 @@ function badgeClass(string $type): string {
 
               $actionUrl = trim((string)($n['action_url'] ?? ''));
               if ($actionUrl === '' && !empty($n['issue_id'])) {
-                  // fallback for workers: open worker view issue page
                   $actionUrl = BASE_URL . "/worker/view_issue.php?issue_id=" . (int)$n['issue_id'];
               } elseif ($actionUrl !== '' && str_starts_with($actionUrl, '/')) {
-                  // if stored like "/worker/view_issue.php?issue_id=1"
                   $actionUrl = BASE_URL . $actionUrl;
               }
             ?>

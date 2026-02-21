@@ -5,150 +5,110 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_roles(['citizen','worker','authority','admin']);
 
-require_login();
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
-$role   = $_SESSION['role'] ?? 'guest';
-
 if ($userId <= 0) {
-    header("Location: " . BASE_URL . "/auth/login.php");
-    exit;
+  header("Location: " . BASE_URL . "/auth/login.php");
+  exit;
 }
 
-/** Redirect target depends on role */
-$redirect = BASE_URL . "/auth/login.php";
-if ($role === 'citizen')   $redirect = BASE_URL . "/citizen/profile.php";
-if ($role === 'worker')    $redirect = BASE_URL . "/worker/profile.php";
-if ($role === 'authority') $redirect = BASE_URL . "/authority/profile.php";
-if ($role === 'admin')     $redirect = BASE_URL . "/admin/profile.php";
+// normalize role from session
+$roleRaw = (string)($_SESSION['role'] ?? 'guest');
+$role = strtolower(trim($roleRaw));
+if ($role === 'local authority') $role = 'authority';
+if ($role === 'field worker')    $role = 'worker';
 
-/** Collect inputs */
-$name   = trim($_POST['name'] ?? '');
-$nic    = trim($_POST['nic'] ?? '');
-$phone  = trim($_POST['phone'] ?? '');
-$dob    = trim($_POST['dob'] ?? '');
-$gender = trim($_POST['gender'] ?? '');
-$areaIdRaw = $_POST['area_id'] ?? '';
+// redirect can be forced (optional hidden input), else use session role
+$roleRedirect = strtolower(trim((string)($_POST['role_redirect'] ?? $role)));
+if (!in_array($roleRedirect, ['citizen','worker','authority','admin'], true)) $roleRedirect = $role;
 
-$areaId = ($areaIdRaw === '' ? 0 : (int)$areaIdRaw);
+$back = BASE_URL . "/{$roleRedirect}/profile.php";
+
+// read inputs
+$name    = trim((string)($_POST['name'] ?? ''));
+$phone   = trim((string)($_POST['phone'] ?? ''));
+$address = trim((string)($_POST['address'] ?? ''));
+$dob     = trim((string)($_POST['dob'] ?? ''));
+$gender  = strtolower(trim((string)($_POST['gender'] ?? '')));
+$areaId  = (int)($_POST['area_id'] ?? 0);
 
 $errors = [];
 $old = [
-    'name' => $name,
-    'nic' => $nic,
-    'phone' => $phone,
-    'dob' => $dob,
-    'gender' => $gender,
-    'area_id' => (string)$areaId,
+  'name' => $name,
+  'phone' => $phone,
+  'address' => $address,
+  'dob' => $dob,
+  'gender' => $gender,
+  'area_id' => (string)$areaId,
 ];
 
-//Validations
+// validations
+if ($name === '' || mb_strlen($name) < 3) $errors['name'] = 'Name must be at least 3 characters.';
+if ($phone === '' || mb_strlen($phone) < 7) $errors['phone'] = 'Phone must be at least 7 digits.';
+if ($address === '' || mb_strlen($address) < 3) $errors['address'] = 'Address is required.';
 
-// Name
-if ($name === '' || mb_strlen($name) < 2) {
-    $errors['name'] = "Name is required (min 2 characters).";
-} elseif (mb_strlen($name) > 80) {
-    $errors['name'] = "Name must be 80 characters or less.";
+if ($gender !== '' && !in_array($gender, ['male','female','other'], true)) {
+  $errors['gender'] = 'Invalid gender.';
 }
 
-// NIC safe validation
-if ($nic === '' || mb_strlen($nic) < 5) {
-    $errors['nic'] = "NIC is required.";
-} elseif (mb_strlen($nic) > 20) {
-    $errors['nic'] = "NIC must be 20 characters or less.";
-}
-
-// Phone 
-if ($phone !== '') {
-    // Allow +, digits, spaces, -
-    if (!preg_match('/^[0-9+\-\s]{7,15}$/', $phone)) {
-        $errors['phone'] = "Enter a valid phone number (7–15 digits).";
-    }
-}
-
-// DOB 
 if ($dob !== '') {
-    $dt = DateTime::createFromFormat('Y-m-d', $dob);
-    $valid = $dt && $dt->format('Y-m-d') === $dob;
-    if (!$valid) {
-        $errors['dob'] = "Date of Birth must be a valid date.";
-    } else {
-        $today = new DateTime('today');
-        if ($dt > $today) {
-            $errors['dob'] = "Date of Birth cannot be in the future.";
-        }
-    }
+  // basic date format check
+  $dt = date_create($dob);
+  if (!$dt) $errors['dob'] = 'Invalid date.';
 }
 
-// Gender 
-$allowedGender = ['male', 'female', 'other', ''];
-if (!in_array($gender, $allowedGender, true)) {
-    $errors['gender'] = "Invalid gender value.";
-}
-
-// Area 
 if ($areaId <= 0) {
-    // citizen must select area 
-    if ($role === 'citizen') {
-        $errors['area_id'] = "Please select your area.";
-    }
-} else {
-    // Ensure area exists
-    $st = $pdo->prepare("SELECT 1 FROM areas WHERE area_id=?");
-    $st->execute([$areaId]);
-    if (!$st->fetchColumn()) {
-        $errors['area_id'] = "Selected area is invalid.";
-    }
+  // citizen and worker MUST have area
+  if ($roleRedirect === 'citizen' || $roleRedirect === 'worker') {
+    $errors['area_id'] = 'Please select your area.';
+  }
 }
 
-// If validation errors 
+// verify area exists if set
+if ($areaId > 0) {
+  $st = $pdo->prepare("SELECT 1 FROM areas WHERE area_id=?");
+  $st->execute([$areaId]);
+  if (!$st->fetchColumn()) $errors['area_id'] = 'Selected area is invalid.';
+}
+
 if ($errors) {
-    $_SESSION['form_errors'] = $errors;
-    $_SESSION['old'] = $old;
-    header("Location: " . $redirect);
-    exit;
+  $_SESSION['form_errors'] = $errors;
+  $_SESSION['old'] = $old;
+  $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Please fix the errors and try again.'];
+  header("Location: " . $back);
+  exit;
 }
 
-//DB UPDATE
+// update
 try {
-    // NIC should be unique 
-    $st = $pdo->prepare("SELECT user_id FROM users WHERE nic = ? AND user_id <> ? LIMIT 1");
-    $st->execute([$nic, $userId]);
-    if ($st->fetch(PDO::FETCH_ASSOC)) {
-        $_SESSION['form_errors'] = ['nic' => "This NIC is already used by another account."];
-        $_SESSION['old'] = $old;
-        header("Location: " . $redirect);
-        exit;
-    }
+  $st = $pdo->prepare("
+    UPDATE users
+    SET name=?, phone=?, address=?, dob=?, gender=?, area_id=?
+    WHERE user_id=?
+    LIMIT 1
+  ");
+  $st->execute([
+    $name,
+    $phone,
+    $address,
+    ($dob === '' ? null : $dob),
+    ($gender === '' ? null : $gender),
+    ($areaId <= 0 ? null : $areaId),
+    $userId
+  ]);
 
-    $stmt = $pdo->prepare("
-        UPDATE users
-        SET name = ?, nic = ?, phone = ?, dob = ?, gender = ?, area_id = ?
-        WHERE user_id = ?
-        LIMIT 1
-    ");
+  // update session name for navbar
+  $_SESSION['name'] = $name;
 
-    // Store NULL for empty dob/gender/area if needed
-    $dobDb    = ($dob === '') ? null : $dob;
-    $genderDb = ($gender === '') ? null : $gender;
-    $areaDb   = ($areaId <= 0) ? null : $areaId;
-
-    $stmt->execute([$name, $nic, $phone, $dobDb, $genderDb, $areaDb, $userId]);
-
-    // Update session name 
-    $_SESSION['name'] = $name;
-
-    $_SESSION['flash_success'] = "Profile updated successfully.";
-    header("Location: " . $redirect);
-    exit;
+  $_SESSION['flash'] = ['type' => 'success', 'msg' => 'Profile updated successfully.'];
+  header("Location: " . $back);
+  exit;
 
 } catch (Throwable $e) {
-    $_SESSION['form_errors'] = ['general' => "Server error. Please try again."];
-    $_SESSION['old'] = $old;
-    header("Location: " . $redirect);
-    exit;
+  $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Server error. Please try again.'];
+  header("Location: " . $back);
+  exit;
 }
