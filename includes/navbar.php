@@ -59,6 +59,7 @@ $menus = [
         ['Issues', 'admin/manage_issues.php'],
         ['Users', 'admin/manage_users.php'],
         ['Analytics', 'admin/analytics.php'],
+        ['Community', 'admin/community.php'],
         ['Profile', 'admin/profile.php'],
     ],
 ];

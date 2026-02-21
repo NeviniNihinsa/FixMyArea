@@ -5,11 +5,13 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-require_roles(['admin']);
+require_roles(['authority','local authority']);
 
-$page_title = 'Admin Profile - FixMyArea';
+$page_title = 'Authority Profile - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php'; 
+require_once __DIR__ . '/../includes/navbar.php';
+
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
 if ($userId <= 0) {
@@ -17,7 +19,6 @@ if ($userId <= 0) {
   exit;
 }
 
-/** Load admin user data */
 $st = $pdo->prepare("
   SELECT user_id, name, email, nic, phone, dob, gender, address, role, status, area_id
   FROM users
@@ -31,30 +32,26 @@ if (!$me) {
   exit;
 }
 
-/** Areas list*/
 $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
-/** Flash + validation errors */
 $flash  = $_SESSION['flash'] ?? null;
 $errors = $_SESSION['form_errors'] ?? [];
 $old    = $_SESSION['old'] ?? [];
 unset($_SESSION['flash'], $_SESSION['form_errors'], $_SESSION['old']);
 
-function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
-/** Resolve old values (if validation failed) */
 $name    = (string)($old['name'] ?? $me['name'] ?? '');
 $email   = (string)($old['email'] ?? $me['email'] ?? '');
+$nic     = (string)($old['nic'] ?? $me['nic'] ?? '');
 $phone   = (string)($old['phone'] ?? $me['phone'] ?? '');
 $dob     = (string)($old['dob'] ?? ($me['dob'] ?? ''));
 $gender  = (string)($old['gender'] ?? ($me['gender'] ?? ''));
 $address = (string)($old['address'] ?? ($me['address'] ?? ''));
 
-$roleRaw = (string)($me['role'] ?? 'admin');
-$role = strtolower(trim($roleRaw));
-$status = (string)($me['status'] ?? 'active');
+$roleRaw = (string)($me['role'] ?? 'authority');
+$status  = (string)($me['status'] ?? 'active');
 
-/** Area display name (admin may not have area) */
 $areaName = '—';
 $areaId = (int)($me['area_id'] ?? 0);
 if ($areaId > 0) {
@@ -63,24 +60,29 @@ if ($areaId > 0) {
   }
 }
 ?>
-
 <style>
- 
-  .profile-shell{
-    max-width: 980px;
-    margin: 0 auto;
-  }
+  .profile-shell{ max-width: 980px; margin: 0 auto; }
   .avatar-ring{
-    width: 120px; height: 120px;
-    border-radius: 50%;
+    width: 120px; height: 120px; border-radius: 50%;
     border: 3px solid rgba(241,246,246,0.55);
     display:flex; align-items:center; justify-content:center;
     margin: 0 auto 10px auto;
   }
-  .avatar-ring i{
-    font-size: 56px;
-    color: rgba(241,246,246,0.55);
+  .avatar-ring i{ font-size: 56px; color: rgba(241,246,246,0.55); }
+
+  .card-dark .form-control, .card-dark .form-select{
+    background: rgba(0,0,0,0.20) !important;
+    border: 1px solid var(--border) !important;
+    color: rgba(241,246,246,0.92) !important;
   }
+  .card-dark .form-control:disabled, .card-dark .form-select:disabled{
+    opacity: 1 !important;
+    background: rgba(0,0,0,0.14) !important;
+    color: rgba(241,246,246,0.80) !important;
+  }
+  .card-dark .form-control::placeholder{ color: rgba(241,246,246,0.45); }
+
+  .radio-row label{ cursor:pointer; }
 </style>
 
 <div class="container py-4 app-container">
@@ -89,7 +91,11 @@ if ($areaId > 0) {
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
       <div>
         <h2 class="fw-bold mb-1">Profile</h2>
-
+        <div class="text-muted small">
+          Role: <span class="fw-semibold"><?= h(ucwords($roleRaw)) ?></span>
+          <span class="mx-2">•</span>
+          Status: <span class="fw-semibold"><?= h(ucwords($status)) ?></span>
+        </div>
       </div>
 
       <div class="d-flex gap-2">
@@ -113,14 +119,14 @@ if ($areaId > 0) {
           <div class="avatar-ring">
             <i class="bi bi-person"></i>
           </div>
-          <div class="text-muted small">Admin Profile</div>
+          <div class="text-muted small">Local Authority Profile</div>
         </div>
 
         <div class="col-12 col-lg-8">
 
           <form id="profileForm" method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" novalidate>
             <!-- tell common action where to return -->
-            <input type="hidden" name="return_to" value="/admin/profile.php">
+            <input type="hidden" name="return_to" value="/authority/profile.php">
 
             <div class="row g-3">
 
@@ -138,8 +144,9 @@ if ($areaId > 0) {
 
               <div class="col-12 col-md-6">
                 <label class="form-label">NIC</label>
-                <input class="form-control" value="<?= h((string)$me['nic']) ?>" disabled>
-                <div class="field-error"></div>
+                
+                <input class="form-control" name="nic" value="<?= h($nic) ?>" disabled maxlength="20">
+                <div class="field-error"><?= h($errors['nic'] ?? '') ?></div>
               </div>
 
               <div class="col-12 col-md-6">
@@ -160,7 +167,7 @@ if ($areaId > 0) {
                   $g = strtolower(trim($gender));
                   $checked = fn(string $x) => ($g === $x) ? 'checked' : '';
                 ?>
-                <div class="d-flex flex-wrap gap-3">
+                <div class="d-flex flex-wrap gap-3 radio-row">
                   <label class="d-flex align-items-center gap-2">
                     <input type="radio" name="gender" value="male" <?= $checked('male') ?> disabled>
                     <span>Male</span>
@@ -184,15 +191,13 @@ if ($areaId > 0) {
               </div>
 
               <div class="col-12 col-md-6">
-                <label class="form-label">Area (info)</label>
+                <label class="form-label">Assigned Area</label>
                 <input class="form-control" value="<?= h($areaName) ?>" disabled>
-                <div class="field-error"></div>
               </div>
 
               <div class="col-12 col-md-6">
-                <label class="form-label">Role (info)</label>
+                <label class="form-label">Role</label>
                 <input class="form-control" value="<?= h(ucwords($roleRaw)) ?>" disabled>
-                <div class="field-error"></div>
               </div>
 
             </div>
@@ -214,6 +219,7 @@ if ($areaId > 0) {
   const editableSelector = [
     'input[name="name"]',
     'input[name="email"]',
+    'input[name="nic"]',
     'input[name="phone"]',
     'input[name="dob"]',
     'input[name="address"]',
@@ -229,10 +235,10 @@ if ($areaId > 0) {
   let editing = false;
   btnEdit.addEventListener('click', () => {
     editing = !editing;
-    if (!editing) window.location.reload(); // cancel - reload to reset values
+    if (!editing) window.location.reload(); 
     else setEditable(true);
   });
 })();
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

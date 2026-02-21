@@ -51,7 +51,7 @@ if (!$mime || !isset($allowedMime[$mime])) {
 
 $ext = $allowedMime[$mime];
 
-// Ensure upload folder exists (same folder you already secured with .htaccess)
+// Ensure upload folder exists
 $uploadDir = __DIR__ . '/../public/uploads/issues';
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0755, true);
@@ -78,14 +78,14 @@ try {
     ");
     $st->execute([$issueId, $photoType, $filePath, $adminId]);
 
-    // Add status history note (optional but nice)
+    // Add status history note
     $st = $pdo->prepare("
       INSERT INTO issue_status_history (issue_id, status, changed_by_user_id, note, created_at)
       VALUES (?, (SELECT status FROM issues WHERE issue_id=?), ?, ?, NOW())
     ");
     $st->execute([$issueId, $issueId, $adminId, "Admin uploaded proof image ({$photoType})."]);
 
-    // Notify reporter (optional, but lecturers love)
+    // Notify reporter
     $st = $pdo->prepare("SELECT reporter_user_id, title FROM issues WHERE issue_id=? LIMIT 1");
     $st->execute([$issueId]);
     $iss = $st->fetch(PDO::FETCH_ASSOC);
