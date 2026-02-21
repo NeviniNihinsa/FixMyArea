@@ -59,10 +59,9 @@ $st = $pdo->prepare("
   WHERE h.issue_id = ?
   ORDER BY h.created_at DESC, h.history_id DESC
 ");
-try { // if your PK name differs, this still works if created_at is enough
+try {
   $st->execute([$issueId]);
 } catch (Throwable $e) {
-  // fallback if history_id does not exist
   $st = $pdo->prepare("
     SELECT h.status, h.note, h.created_at, u.name AS changed_by
     FROM issue_status_history h
@@ -74,7 +73,7 @@ try { // if your PK name differs, this still works if created_at is enough
 }
 $history = $st->fetchAll(PDO::FETCH_ASSOC);
 
-// comments (your table name is `comments`)
+// comments
 $comments = [];
 try {
   $st = $pdo->prepare("
@@ -90,7 +89,7 @@ try {
   $comments = [];
 }
 
-// upvotes count (your table name is `votes`, and you have `value` column)
+// upvotes count
 $upvotes = 0;
 try {
   $st = $pdo->prepare("SELECT COALESCE(SUM(value),0) FROM votes WHERE issue_id=?");

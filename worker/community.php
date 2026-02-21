@@ -11,7 +11,6 @@ $page_title = 'Community - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
-// Fetch issues for community listing
 $sql = "
 SELECT
   i.issue_id,

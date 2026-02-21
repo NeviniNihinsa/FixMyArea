@@ -17,13 +17,11 @@ if ($userId <= 0) {
   exit;
 }
 
-// flash + field errors
 $flash  = $_SESSION['flash'] ?? null;
 $errors = $_SESSION['form_errors'] ?? [];
 $old    = $_SESSION['old'] ?? [];
 unset($_SESSION['flash'], $_SESSION['form_errors'], $_SESSION['old']);
 
-// Load worker
 $st = $pdo->prepare("
   SELECT user_id, name, email, nic, dob, phone, gender, address, area_id, role
   FROM users
@@ -45,7 +43,7 @@ $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")-
 // helper
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
-// values (prefer old if validation failed)
+// values
 $name    = (string)($old['name'] ?? $user['name'] ?? '');
 $email   = (string)($user['email'] ?? '');
 $nic     = (string)($user['nic'] ?? '');
@@ -63,7 +61,6 @@ foreach ($areas as $a) {
 ?>
 
 <style>
-  /* Small low-fi alignment helpers (safe) */
   .profile-wrap{
     max-width: 980px;
     margin: 0 auto;
@@ -131,7 +128,7 @@ foreach ($areas as $a) {
               <div class="field-error"><?= h($errors['area_id'] ?? '') ?></div>
             </div>
 
-            <!-- Email (readonly) -->
+            <!-- Email -->
             <div class="mb-3">
               <div class="profile-label mb-1">Email :</div>
               <input type="text" class="form-control readonly-box" value="<?= h($email) ?>" readonly>
@@ -153,7 +150,7 @@ foreach ($areas as $a) {
               <div class="field-error"><?= h($errors['phone'] ?? '') ?></div>
             </div>
 
-            <!-- Optional: DOB + Gender (not in worker lowfi, but kept consistent) -->
+            <!-- Optional: DOB + Gender-->
             <div class="row g-3">
               <div class="col-12 col-md-6">
                 <div class="profile-label mb-1">Date of Birth:</div>
@@ -181,7 +178,7 @@ foreach ($areas as $a) {
           </form>
         </div>
 
-        <!-- RIGHT avatar (matches low-fi) -->
+        <!-- RIGHT avatar -->
         <div class="col-12 col-lg-6 text-center">
           <div class="avatar-circle mb-3">
             <i class="bi bi-person"></i>
