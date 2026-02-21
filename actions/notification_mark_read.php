@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-require_roles(['citizen','worker']); // citizen now, worker later can use same action
+require_roles(['citizen','worker']); 
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 

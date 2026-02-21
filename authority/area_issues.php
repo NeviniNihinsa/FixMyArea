@@ -5,17 +5,12 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-/**
- * Authority role in DB is: 'local authority'
- * Some projects normalize it to 'authority'
- * To be safe, allow both.
- */
 require_roles(['local authority', 'authority']);
 
 $page_title = 'Area Issues - FixMyArea';
 
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php'; // ✅ dashboard navbar (NOT navbar_auth)
+require_once __DIR__ . '/../includes/navbar.php'; 
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -29,9 +24,6 @@ function h(?string $s): string {
   return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 
-/* -----------------------------
-   0) Detect if issues.priority exists (prevents fatal error)
------------------------------- */
 $st = $pdo->prepare("
   SELECT COUNT(*)
   FROM INFORMATION_SCHEMA.COLUMNS
@@ -42,9 +34,6 @@ $st = $pdo->prepare("
 $st->execute();
 $hasPriority = ((int)$st->fetchColumn() > 0);
 
-/* -----------------------------
-   1) Load authority's area
------------------------------- */
 $st = $pdo->prepare("
   SELECT u.area_id, a.area_name
   FROM users u
@@ -66,9 +55,7 @@ if ($myAreaId <= 0) {
   exit;
 }
 
-/* -----------------------------
-   2) Dropdown data
------------------------------- */
+
 // Categories
 $categories = $pdo->query("
   SELECT category_id, category_name
@@ -88,9 +75,6 @@ $st = $pdo->prepare("
 $st->execute([$myAreaId]);
 $fieldWorkers = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* -----------------------------
-   3) Filters (GET)
------------------------------- */
 $q             = trim((string)($_GET['q'] ?? ''));
 $fieldWorkerId = (int)($_GET['field_worker_id'] ?? 0);
 $status        = trim((string)($_GET['status'] ?? ''));
@@ -106,9 +90,6 @@ $allowedPriority = ['','low','medium','high','LOW','MEDIUM','HIGH'];
 if (!in_array($priority, $allowedPriority, true)) $priority = '';
 $priority = strtolower($priority);
 
-/* -----------------------------
-   4) Build WHERE + params
------------------------------- */
 $where  = ["i.area_id = ?"];
 $params = [$myAreaId];
 
@@ -142,9 +123,7 @@ if ($dateTo !== '') {
   $params[] = $dateTo;
 }
 
-/**
- * ✅ Priority filter only if column exists
- */
+
 if ($hasPriority && $priority !== '') {
   $where[] = "LOWER(i.priority) = ?";
   $params[] = $priority;
@@ -152,9 +131,6 @@ if ($hasPriority && $priority !== '') {
 
 $whereSql = implode(" AND ", $where);
 
-/* -----------------------------
-   5) Base SQL (safe even if priority missing)
------------------------------- */
 $prioritySelect = $hasPriority ? "i.priority" : "NULL AS priority";
 
 $sqlBase = "
@@ -182,9 +158,6 @@ $sqlBase = "
   WHERE {$whereSql}
 ";
 
-/* -----------------------------
-   6) Export CSV
------------------------------- */
 $isExport = (isset($_GET['export']) && (string)$_GET['export'] === '1');
 
 if ($isExport) {
@@ -217,9 +190,6 @@ if ($isExport) {
   exit;
 }
 
-/* -----------------------------
-   7) Normal page fetch (limit 200)
------------------------------- */
 $st = $pdo->prepare($sqlBase . " ORDER BY i.created_at DESC, i.issue_id DESC LIMIT 200");
 $st->execute($params);
 $issues = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -236,7 +206,7 @@ function qs(array $overrides = []): string {
 ?>
 
 <style>
-  /* ✅ make readonly area field look like theme inputs (not white) */
+  
   .area-readonly{
     background: rgba(0,0,0,0.18) !important;
     border: 1px solid var(--border) !important;
@@ -244,7 +214,6 @@ function qs(array $overrides = []): string {
   }
   .area-readonly::placeholder{ color: rgba(241,246,246,0.6) !important; }
 
-  /* ✅ allow long area names */
   .area-wrap{
     white-space: normal !important;
     word-break: break-word !important;
@@ -330,7 +299,7 @@ function qs(array $overrides = []): string {
           </select>
         </div>
 
-        <!-- ✅ AREA: locked (NO dropdown) -->
+  
         <div class="col-12 col-md-6 col-lg-3">
           <label class="form-label">Area</label>
           <input

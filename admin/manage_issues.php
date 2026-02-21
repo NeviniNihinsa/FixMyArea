@@ -65,12 +65,7 @@ if ($dateTo !== '') {
 
 $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
 
-/**
- * Assigned To:
- * We get the latest assignment row per issue (if your assignments table exists).
- * If you don't have assignments table yet, this query may fail.
- * To keep safe: we try/catch and fallback without assignment.
- */
+
 $baseSql = "
 SELECT
   i.issue_id,
@@ -200,7 +195,7 @@ function statusBadge(string $s): string {
     <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
   <?php endif; ?>
 
-  <!-- Filter box (matches low-fi) -->
+  <!-- Filter box -->
   <div class="card-dark p-3 p-md-4 mb-4">
     <form method="GET" class="row g-3 align-items-end">
 

@@ -9,7 +9,7 @@ require_roles(['admin']);
 
 $page_title = 'Admin Profile - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php'; // dashboard navbar
+require_once __DIR__ . '/../includes/navbar.php'; 
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
 if ($userId <= 0) {
@@ -31,7 +31,7 @@ if (!$me) {
   exit;
 }
 
-/** Areas list (optional display) */
+/** Areas list*/
 $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
 /** Flash + validation errors */
@@ -65,7 +65,7 @@ if ($areaId > 0) {
 ?>
 
 <style>
-  /* matches citizen profile style (safe, page-local) */
+ 
   .profile-shell{
     max-width: 980px;
     margin: 0 auto;
@@ -229,7 +229,7 @@ if ($areaId > 0) {
   let editing = false;
   btnEdit.addEventListener('click', () => {
     editing = !editing;
-    if (!editing) window.location.reload(); // cancel -> reload to reset values
+    if (!editing) window.location.reload(); // cancel - reload to reset values
     else setEditable(true);
   });
 })();
