@@ -19,7 +19,6 @@ if ($userId <= 0) {
   exit;
 }
 
-/** Load authority user data */
 $st = $pdo->prepare("
   SELECT user_id, name, email, nic, phone, dob, gender, address, role, status, area_id
   FROM users
@@ -33,10 +32,8 @@ if (!$me) {
   exit;
 }
 
-/** Areas list (for display) */
 $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
-/** Flash + validation errors */
 $flash  = $_SESSION['flash'] ?? null;
 $errors = $_SESSION['form_errors'] ?? [];
 $old    = $_SESSION['old'] ?? [];
@@ -44,7 +41,6 @@ unset($_SESSION['flash'], $_SESSION['form_errors'], $_SESSION['old']);
 
 function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
-/** Values (use old if validation failed) */
 $name    = (string)($old['name'] ?? $me['name'] ?? '');
 $email   = (string)($old['email'] ?? $me['email'] ?? '');
 $nic     = (string)($old['nic'] ?? $me['nic'] ?? '');
@@ -56,7 +52,6 @@ $address = (string)($old['address'] ?? ($me['address'] ?? ''));
 $roleRaw = (string)($me['role'] ?? 'authority');
 $status  = (string)($me['status'] ?? 'active');
 
-/** Area display name */
 $areaName = '—';
 $areaId = (int)($me['area_id'] ?? 0);
 if ($areaId > 0) {
@@ -75,7 +70,6 @@ if ($areaId > 0) {
   }
   .avatar-ring i{ font-size: 56px; color: rgba(241,246,246,0.55); }
 
-  /* ✅ FIX: stop white inputs on dark theme (page-only, no theme.css change) */
   .card-dark .form-control, .card-dark .form-select{
     background: rgba(0,0,0,0.20) !important;
     border: 1px solid var(--border) !important;
@@ -150,7 +144,7 @@ if ($areaId > 0) {
 
               <div class="col-12 col-md-6">
                 <label class="form-label">NIC</label>
-                <!-- If you REALLY want editable NIC, keep disabled off while editing (we do that below) -->
+                
                 <input class="form-control" name="nic" value="<?= h($nic) ?>" disabled maxlength="20">
                 <div class="field-error"><?= h($errors['nic'] ?? '') ?></div>
               </div>
@@ -241,7 +235,7 @@ if ($areaId > 0) {
   let editing = false;
   btnEdit.addEventListener('click', () => {
     editing = !editing;
-    if (!editing) window.location.reload(); // cancel -> reset values
+    if (!editing) window.location.reload(); 
     else setEditable(true);
   });
 })();

@@ -5,10 +5,6 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-/**
- * Some DBs store role as "local authority", some as "authority"
- * Support both to prevent 403.
- */
 require_roles(['local authority', 'authority']);
 
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -25,9 +21,6 @@ function h(?string $s): string {
   return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 
-/* -----------------------------
-   1) Load authority's area
------------------------------- */
 $st = $pdo->prepare("
   SELECT u.area_id, a.area_name
   FROM users u
@@ -52,20 +45,14 @@ if ($myAreaId <= 0) {
   exit;
 }
 
-/* -----------------------------
-   2) Sort
------------------------------- */
 $sort = (string)($_GET['sort'] ?? 'recent');
 $sort = in_array($sort, ['recent', 'top'], true) ? $sort : 'recent';
 
-// Build ORDER BY safely (no direct injection)
+
 $orderSql = ($sort === 'top')
   ? "vote_count DESC, i.created_at DESC, i.issue_id DESC"
   : "i.created_at DESC, i.issue_id DESC";
 
-/* -----------------------------
-   3) Query issues in this area
------------------------------- */
 $sql = "
   SELECT
     i.issue_id,
@@ -94,11 +81,9 @@ $st = $pdo->prepare($sql);
 $st->execute([':area_id' => $myAreaId]);
 $issues = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* -----------------------------
-   4) Page layout
------------------------------- */
+
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar_auth.php';
+require_once __DIR__ . '/../includes/navbar.php';
 ?>
 
 <div class="app-container">

@@ -5,9 +5,6 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-/**
- * Support both role names (some DBs use "local authority", some use "authority")
- */
 require_roles(['local authority', 'authority']);
 
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -24,9 +21,6 @@ function h($v): string {
   return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 }
 
-/* -----------------------------
-   1) Load authority's assigned area
------------------------------- */
 $st = $pdo->prepare("
   SELECT u.area_id, a.area_name
   FROM users u
@@ -46,15 +40,11 @@ if ($myAreaId <= 0) {
   exit;
 }
 
-/* -----------------------------
-   2) Toggle user (Enable/Disable)
------------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggle_user') {
   $targetId = (int)($_POST['user_id'] ?? 0);
 
   if ($targetId > 0) {
 
-    // Ensure user belongs to this authority area and is a field worker
     $st = $pdo->prepare("
       SELECT user_id, status
       FROM users
@@ -83,16 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggl
   exit;
 }
 
-/* -----------------------------
-   3) Filters
------------------------------- */
 $statusFilter = strtolower(trim((string)($_GET['status'] ?? 'all')));
 $allowedStatus = ['all','active','inactive'];
 if (!in_array($statusFilter, $allowedStatus, true)) $statusFilter = 'all';
 
-/* -----------------------------
-   4) Load users list
------------------------------- */
 $sql = "
   SELECT u.user_id, u.name, u.email, u.status, a.area_name
   FROM users u
@@ -113,17 +97,11 @@ $st = $pdo->prepare($sql);
 $st->execute($params);
 $users = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* -----------------------------
-   5) Flash
------------------------------- */
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
-/* -----------------------------
-   6) Page layout
------------------------------- */
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php'; // ✅ logged-in navbar
+require_once __DIR__ . '/../includes/navbar.php'; 
 ?>
 
 <div class="app-container">
