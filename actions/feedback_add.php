@@ -56,7 +56,6 @@ if ($st->fetchColumn()) {
     exit;
 }
 
-// Try to link worker/authority from assignments (if assignment exists) 
 $authorityUserId = null;
 $workerUserId    = null;
 

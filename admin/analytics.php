@@ -11,19 +11,12 @@ $page_title = 'Analytics & Reports - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
-/**
- * FILTERS (match low-fi)
- * - area_id (optional)
- * - from_date (optional)
- * - to_date (optional)
- */
 $areaId   = (int)($_GET['area_id'] ?? 0);
 $fromDate = trim((string)($_GET['from_date'] ?? ''));
 $toDate   = trim((string)($_GET['to_date'] ?? ''));
 
 $errors = [];
 
-/** Validate dates (YYYY-MM-DD) */
 $validDate = function(string $d): bool {
   if ($d === '') return true;
   $dt = DateTime::createFromFormat('Y-m-d', $d);
@@ -34,10 +27,8 @@ if (!$validDate($fromDate)) $errors[] = "Invalid From Date.";
 if (!$validDate($toDate))   $errors[] = "Invalid To Date.";
 if ($fromDate !== '' && $toDate !== '' && $fromDate > $toDate) $errors[] = "From Date must be before To Date.";
 
-/** Areas dropdown */
 $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
-/** Build WHERE clause */
 $where = [];
 $params = [];
 
@@ -48,29 +39,17 @@ if ($toDate !== '')   { $where[] = "i.created_at <= ?"; $params[] = $toDate . " 
 
 $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
 
-/**
- * KPI 1: Total Issues
- */
+/**KPI 1: Total Issues*/
 $st = $pdo->prepare("SELECT COUNT(*) FROM issues i {$whereSql}");
 $st->execute($params);
 $totalIssues = (int)$st->fetchColumn();
 
-/**
- * KPI 2: Resolved Issues
- * (use your statuses: COMPLETED/CLOSED)
- */
+/**KPI 2: Resolved Issues*/
 $st = $pdo->prepare("SELECT COUNT(*) FROM issues i {$whereSql}" . ($whereSql ? " AND " : " WHERE ") . " i.status IN ('COMPLETED','CLOSED')");
 $st->execute($params);
 $resolvedIssues = (int)$st->fetchColumn();
 
-/**
- * KPI 3: Avg Resolution Time (days)
- * We calculate:
- * - for issues closed/completed
- * - difference between i.created_at and latest status_history row where status is COMPLETED/CLOSED
- *
- * If you don't have those rows, avg = 0.0
- */
+/**KPI 3: Avg Resolution Time (days)*/
 $avgResolution = 0.0;
 
 $sqlAvg = "
@@ -91,9 +70,7 @@ $avgResolution = (float)($st->fetchColumn() ?? 0.0);
 if ($avgResolution < 0) $avgResolution = 0.0;
 $avgResolution = round($avgResolution, 1);
 
-/**
- * Chart 1: Issue Distribution by Category
- */
+/**Chart 1: Issue Distribution by Category*/
 $sqlCat = "
 SELECT ic.category_name AS label, COUNT(*) AS c
 FROM issues i
@@ -109,11 +86,7 @@ $byCategory = $st->fetchAll(PDO::FETCH_ASSOC);
 $catLabels = array_map(fn($r) => (string)$r['label'], $byCategory);
 $catData   = array_map(fn($r) => (int)$r['c'], $byCategory);
 
-/**
- * Chart 2: Resolution Time Analysis (simple + defendable)
- * Bucket resolved issues into ranges:
- * 0-2, 3-7, 8-14, 15-30, 31+
- */
+/**Chart 2: Resolution Time Analysis*/
 $buckets = [
   '0-2 days' => 0,
   '3-7 days' => 0,
@@ -150,10 +123,7 @@ foreach ($resTimes as $r) {
 $rtLabels = array_keys($buckets);
 $rtData   = array_values($buckets);
 
-/**
- * CSV Download (low-fi says PDF/CSV; do CSV now)
- * /admin/analytics.php?download=csv&...
- */
+/**CSV Download*/
 $download = (string)($_GET['download'] ?? '');
 if ($download === 'csv') {
   header('Content-Type: text/csv; charset=utf-8');
@@ -204,7 +174,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   <?php endif; ?>
 
-  <!-- FILTER BOX (matches low-fi) -->
+  <!-- FILTER BOX -->
   <div class="card-dark p-4 mb-4">
     <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
       <div class="fw-semibold">Filter by</div>
@@ -243,7 +213,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- KPI ROW (matches low-fi order) -->
+  <!-- KPI ROW  -->
   <div class="row g-4 mb-4">
     <div class="col-12 col-md-4">
       <div class="card-dark p-3 text-center">
@@ -265,7 +235,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- TWO CHART BOXES (matches low-fi) -->
+  <!-- TWO CHART BOXES -->
   <div class="row g-4 mb-4">
     <div class="col-12 col-lg-6">
       <div class="card-dark p-4">
@@ -288,7 +258,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- HEATMAP PLACEHOLDER (matches low-fi big box) -->
+  <!-- HEATMAP PLACEHOLDER -->
   <div class="card-dark p-4 mb-4">
     <h5 class="fw-semibold mb-3">Issue Density Heatmap</h5>
 

@@ -14,7 +14,6 @@ require_once __DIR__ . '/../includes/navbar.php';
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
 
-// worker profile + assigned area
 $st = $pdo->prepare("
   SELECT u.user_id, u.name, u.email, u.area_id, a.area_name
   FROM users u
@@ -28,7 +27,6 @@ $me = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 $areaName = (string)($me['area_name'] ?? 'Not set');
 $areaId   = (int)($me['area_id'] ?? 0);
 
-// counts (based on assignments)
 $st = $pdo->prepare("SELECT COUNT(*) FROM assignments WHERE field_worker_id=?");
 $st->execute([$userId]);
 $totalAssigned = (int)$st->fetchColumn();
@@ -51,12 +49,10 @@ $st = $pdo->prepare("
 $st->execute([$userId]);
 $pending = (int)$st->fetchColumn();
 
-// notifications (unread)
 $st = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0");
 $st->execute([$userId]);
 $newNotifs = (int)$st->fetchColumn();
 
-// recent assigned/updated issues
 $st = $pdo->prepare("
   SELECT
     i.issue_id, i.title, i.status, i.created_at,
