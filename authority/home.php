@@ -5,34 +5,57 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-require_roles(['authority']); 
+/**
+ * Support both role names (some DBs use "local authority", some use "authority")
+ */
+require_roles(['local authority', 'authority']);
+
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 $page_title = 'Authority Dashboard - FixMyArea';
+
+/**
+ * ✅ Use the LOGGED-IN navbar (NOT navbar_auth.php)
+ * navbar_auth.php is for Login/Register header.
+ */
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
-$userName = (string)($_SESSION['name'] ?? 'Local Authority');
-
-
-$st = $pdo->prepare("SELECT area_id FROM users WHERE user_id=? LIMIT 1");
-$st->execute([$userId]);
-$me = $st->fetch(PDO::FETCH_ASSOC);
-$areaId = (int)($me['area_id'] ?? 0);
-
-
-$areaName = 'Not assigned';
-if ($areaId > 0) {
-  $st = $pdo->prepare("SELECT area_name FROM areas WHERE area_id=? LIMIT 1");
-  $st->execute([$areaId]);
-  $areaName = (string)($st->fetchColumn() ?: 'Not assigned');
+if ($userId <= 0) {
+  header("Location: " . BASE_URL . "/auth/login.php");
+  exit;
 }
 
+function h($v): string {
+  return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+}
+
+/* -----------------------------
+   1) Load authority + area
+------------------------------ */
+$st = $pdo->prepare("
+  SELECT u.name, u.area_id, a.area_name
+  FROM users u
+  LEFT JOIN areas a ON a.area_id = u.area_id
+  WHERE u.user_id = ?
+  LIMIT 1
+");
+$st->execute([$userId]);
+$me = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+
+$userName = (string)($me['name'] ?? 'Local Authority');
+$areaId   = (int)($me['area_id'] ?? 0);
+$areaName = (string)($me['area_name'] ?? '—');
+
+/* -----------------------------
+   2) Stats for this area
+------------------------------ */
 $stats = [
-  'total' => 0,
-  'completed' => 0,
+  'total'       => 0,
+  'completed'   => 0,
   'in_progress' => 0,
-  'pending' => 0,
+  'pending'     => 0,
 ];
 
 if ($areaId > 0) {
@@ -40,7 +63,7 @@ if ($areaId > 0) {
     SELECT
       COUNT(*) AS total,
       SUM(status IN ('COMPLETED','CLOSED')) AS completed,
-      SUM(status = 'IN_PROGRESS') AS in_progress,
+      SUM(status IN ('IN_PROGRESS','ASSIGNED')) AS in_progress,
       SUM(status = 'PENDING') AS pending
     FROM issues
     WHERE area_id = ?
@@ -54,6 +77,9 @@ if ($areaId > 0) {
   $stats['pending']     = (int)($row['pending'] ?? 0);
 }
 
+/* -----------------------------
+   3) Recently updates (latest 8)
+------------------------------ */
 $recent = [];
 if ($areaId > 0) {
   $st = $pdo->prepare("
@@ -71,6 +97,7 @@ if ($areaId > 0) {
     JOIN areas a ON a.area_id = i.area_id
     LEFT JOIN issue_categories c ON c.category_id = i.category_id
     JOIN users urep ON urep.user_id = i.reporter_user_id
+
     /* latest assignment (if exists) */
     LEFT JOIN assignments asg ON asg.assignment_id = (
       SELECT a2.assignment_id
@@ -80,6 +107,7 @@ if ($areaId > 0) {
       LIMIT 1
     )
     LEFT JOIN users uw ON uw.user_id = asg.field_worker_id
+
     WHERE i.area_id = ?
     ORDER BY i.created_at DESC, i.issue_id DESC
     LIMIT 8
@@ -87,18 +115,19 @@ if ($areaId > 0) {
   $st->execute([$areaId]);
   $recent = $st->fetchAll(PDO::FETCH_ASSOC);
 }
-
-function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
-
 ?>
+
 <div class="container py-4 app-container">
 
   <div class="mb-4">
     <h2 class="fw-bold mb-1">Welcome <?= h($userName) ?></h2>
-    <div class="text-muted">Reported issues in area: <span class="fw-semibold"><?= h($areaName) ?></span></div>
+    <div class="text-muted">
+      Reported issues in area: <span class="fw-semibold"><?= h($areaName) ?></span>
+    </div>
   </div>
 
   <div class="row g-4">
+    <!-- Map placeholder -->
     <div class="col-12 col-lg-7">
       <div class="card-dark p-4" style="min-height:320px; display:flex; align-items:center; justify-content:center;">
         <div class="text-center text-muted">
@@ -108,7 +137,7 @@ function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES,
       </div>
     </div>
 
-
+    <!-- Stats -->
     <div class="col-12 col-lg-5">
       <div class="card-dark p-4 h-100">
         <div class="fw-semibold mb-3">Reported Issues in area</div>
@@ -120,18 +149,21 @@ function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES,
               <div class="display-6 fw-bold"><?= (int)$stats['total'] ?></div>
             </div>
           </div>
+
           <div class="col-6">
             <div class="card-dark p-3">
               <div class="text-muted small">Completed</div>
               <div class="display-6 fw-bold"><?= (int)$stats['completed'] ?></div>
             </div>
           </div>
+
           <div class="col-6">
             <div class="card-dark p-3">
               <div class="text-muted small">In Progress</div>
               <div class="display-6 fw-bold"><?= (int)$stats['in_progress'] ?></div>
             </div>
           </div>
+
           <div class="col-6">
             <div class="card-dark p-3">
               <div class="text-muted small">Pending</div>
@@ -149,6 +181,7 @@ function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES,
     </div>
   </div>
 
+  <!-- Recently Updates -->
   <div class="mt-4">
     <h5 class="fw-semibold mb-3">Recently Updates</h5>
 
@@ -157,13 +190,13 @@ function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES,
         <table class="table table-dark-custom align-middle mb-0">
           <thead>
             <tr>
-              <th>Issue ID</th>
+              <th style="width:90px;">Issue ID</th>
               <th>Title</th>
-              <th>Category</th>
-              <th>Area</th>
-              <th>Reported By</th>
-              <th>Assigned Field Worker</th>
-              <th>Status</th>
+              <th style="width:140px;">Category</th>
+              <th style="width:140px;">Area branch</th>
+              <th style="width:180px;">Reported By</th>
+              <th style="width:200px;">Assigned Field Worker</th>
+              <th style="width:120px;">Status</th>
               <th style="width:120px;">Action</th>
             </tr>
           </thead>
@@ -176,7 +209,7 @@ function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES,
             <?php foreach ($recent as $r): ?>
               <tr>
                 <td>#<?= (int)$r['issue_id'] ?></td>
-                <td><?= h($r['title']) ?></td>
+                <td><?= h($r['title'] ?? '') ?></td>
                 <td><?= h($r['category_name'] ?? '—') ?></td>
                 <td><?= h($r['area_name'] ?? '—') ?></td>
                 <td><?= h($r['reporter_email'] ?? '—') ?></td>

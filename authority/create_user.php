@@ -38,7 +38,7 @@ $old    = $_SESSION['old'] ?? [];
 unset($_SESSION['form_errors'], $_SESSION['old']);
 
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar_auth.php';
+require_once __DIR__ . '/../includes/navbar.php';
 ?>
 
 <div class="app-container">
@@ -139,7 +139,7 @@ require_once __DIR__ . '/../includes/navbar_auth.php';
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Designated Area</label>
+              <label class="form-label">Designated Branch</label>
               <input class="form-control" value="<?= htmlspecialchars($myAreaName ?: 'My Area') ?>" readonly>
               <input type="hidden" name="area_id" value="<?= (int)$myAreaId ?>">
               <div class="field-error"><?= htmlspecialchars($errors['area_id'] ?? '') ?></div>

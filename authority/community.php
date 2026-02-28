@@ -48,7 +48,6 @@ if ($myAreaId <= 0) {
 $sort = (string)($_GET['sort'] ?? 'recent');
 $sort = in_array($sort, ['recent', 'top'], true) ? $sort : 'recent';
 
-
 $orderSql = ($sort === 'top')
   ? "vote_count DESC, i.created_at DESC, i.issue_id DESC"
   : "i.created_at DESC, i.issue_id DESC";
@@ -81,7 +80,6 @@ $st = $pdo->prepare($sql);
 $st->execute([':area_id' => $myAreaId]);
 $issues = $st->fetchAll(PDO::FETCH_ASSOC);
 
-
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 ?>
@@ -92,13 +90,21 @@ require_once __DIR__ . '/../includes/navbar.php';
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <h2 class="fw-bold mb-0">COMMUNITY - <?= h($myAreaName ?: 'Designated Area') ?></h2>
 
-      <form method="GET" class="d-flex align-items-center gap-2">
-        <label class="text-muted small mb-0">Sort:</label>
-        <select name="sort" class="form-select form-select-sm" style="width: 180px;" onchange="this.form.submit()">
-          <option value="recent" <?= $sort === 'recent' ? 'selected' : '' ?>>Recently Added</option>
-          <option value="top" <?= $sort === 'top' ? 'selected' : '' ?>>Most Upvoted</option>
-        </select>
-      </form>
+      <!-- Right side controls: Sort + Leaderboard button -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <form method="GET" class="d-flex align-items-center gap-2 mb-0">
+          <label class="text-muted small mb-0">Sort:</label>
+          <select name="sort" class="form-select form-select-sm" style="width: 180px;" onchange="this.form.submit()">
+            <option value="recent" <?= $sort === 'recent' ? 'selected' : '' ?>>Recently Added</option>
+            <option value="top" <?= $sort === 'top' ? 'selected' : '' ?>>Most Upvoted</option>
+          </select>
+        </form>
+
+        <a class="btn btn-outline-brand"
+           href="<?= BASE_URL ?>/authority/leaderboard.php">
+          View Leaderboard
+        </a>
+      </div>
     </div>
 
     <?php if (empty($issues)): ?>
