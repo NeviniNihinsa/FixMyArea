@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Analytics & Reports - FixMyArea';
+$page_title = 'Analytics & Reports - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -162,7 +162,7 @@ if ($download === 'csv') {
   $out = fopen('php://output', 'w');
 
   // Summary section
-  fputcsv($out, ['FixMyArea Analytics Report']);
+  fputcsv($out, ['Fixly Analytics Report']);
   fputcsv($out, ['Area', $areaId > 0 ? (string)$areaId : 'All']);
   fputcsv($out, ['From', $fromDate !== '' ? $fromDate : 'Any']);
   fputcsv($out, ['To', $toDate !== '' ? $toDate : 'Any']);
@@ -213,7 +213,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
         <div class="row g-3 align-items-end">
 
           <div class="col-12 col-md-4 col-lg-3">
-            <label class="form-label text-muted">Area</label>
+            <label class="form-label text-muted">Branch</label>
             <select name="area_id" class="form-select">
               <option value="0">All areas</option>
               <?php foreach ($areas as $a): ?>

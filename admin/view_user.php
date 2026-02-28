@@ -11,7 +11,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'View User - FixMyArea';
+$page_title = 'View User - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -121,12 +121,12 @@ $statusLabel = (strtolower((string)$u['status']) === 'inactive') ? 'Inactive' : 
           </div>
 
           <div class="col-12 col-md-6">
-            <label class="form-label">Area</label>
+            <label class="form-label">Branch</label>
             <input class="form-control" value="<?= h($u['area_name'] ?? '') ?>" readonly>
           </div>
 
           <div class="col-12">
-            <label class="form-label">Address</label>
+            <label class="form-label">Unit Number</label>
             <input class="form-control" value="<?= h($u['address'] ?? '') ?>" readonly>
           </div>
 

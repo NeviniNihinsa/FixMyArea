@@ -134,6 +134,8 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
         <div class="text-muted small">
           Reported by: <span class="fw-semibold"><?= h($issue['reporter_name']) ?></span>
           &nbsp;|&nbsp; Category: <span class="fw-semibold"><?= h($issue['category_name'] ?? '-') ?></span>
+          &nbsp;|&nbsp; Branch: <span class="fw-semibold"><?= h($issue['area_name'] ?? '-') ?></span>
+          &nbsp;|&nbsp; Unit Number: <span class="fw-semibold"><?= h($issue['unit_number'] ?? '-') ?></span>
           &nbsp;|&nbsp; Status: <span class="badge bg-secondary"><?= h($issue['status']) ?></span>
         </div>
       </div>
