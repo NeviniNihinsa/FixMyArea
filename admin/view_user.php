@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '1');          // remove later
-ini_set('display_startup_errors', '1');  // remove later
-error_reporting(E_ALL);                 // remove later
+ini_set('display_errors', '1');          
+ini_set('display_startup_errors', '1');  
+error_reporting(E_ALL);                 
 
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
@@ -133,7 +133,7 @@ $statusLabel = (strtolower((string)$u['status']) === 'inactive') ? 'Inactive' : 
         </div>
       </div>
 
-      <!-- Right column: placeholder avatar (matches low-fi circle) -->
+      <!-- Right column: placeholder avatar -->
       <div class="col-12 col-lg-4">
         <div class="d-flex flex-column align-items-center justify-content-center h-100">
           <div style="width:140px;height:140px;border-radius:50%;border:3px solid rgba(241,246,246,0.6);display:flex;align-items:center;justify-content:center;">

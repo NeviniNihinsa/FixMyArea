@@ -23,7 +23,7 @@ if ($userId <= 0 || $issueId <= 0 || !in_array($status, $allowed, true)) {
 }
 
 try {
-  // authority area (optional restriction)
+  // authority area 
   $st = $pdo->prepare("SELECT area_id FROM users WHERE user_id=? LIMIT 1");
   $st->execute([$userId]);
   $myAreaId = (int)($st->fetchColumn() ?: 0);

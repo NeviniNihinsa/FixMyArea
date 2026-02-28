@@ -21,7 +21,7 @@ if ($targetUserId <= 0 || !in_array($to, ['active', 'inactive'], true)) {
     exit;
 }
 
-// Don’t allow admin to disable self (avoids locking yourself out)
+// Don’t allow admin to disable self 
 if ($targetUserId === $currentAdminId) {
     $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'You cannot change your own status.'];
     header("Location: " . $back);
@@ -47,7 +47,7 @@ try {
         exit;
     }
 
-    // If already same status, no need update (still OK)
+    // If already same status, no need update
     if (strtolower((string)$user['status']) === $to) {
         $_SESSION['flash'] = ['type' => 'info', 'msg' => 'User is already ' . $to . '.'];
         header("Location: " . $back);
