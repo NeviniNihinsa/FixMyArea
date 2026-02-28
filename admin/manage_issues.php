@@ -17,8 +17,9 @@ $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
 /** Dropdown data */
-$areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
-$cats  = $pdo->query("SELECT category_id, category_name FROM issue_categories ORDER BY category_name")->fetchAll(PDO::FETCH_ASSOC);
+$areas        = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
+$cats         = $pdo->query("SELECT category_id, category_name FROM issue_categories ORDER BY category_name")->fetchAll(PDO::FETCH_ASSOC);
+$commonAreas  = $pdo->query("SELECT common_area_id, area_name FROM common_areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
 /** Filters */
 $q         = trim((string)($_GET['q'] ?? ''));
@@ -27,6 +28,8 @@ $catId     = (int)($_GET['category_id'] ?? 0);
 $status    = strtoupper(trim((string)($_GET['status'] ?? '')));
 $dateFrom  = trim((string)($_GET['from'] ?? ''));
 $dateTo    = trim((string)($_GET['to'] ?? ''));
+$locType   = trim((string)($_GET['loc_type'] ?? ''));   // '' | 'common' | 'unit'
+$commonAreaId = (int)($_GET['common_area_id'] ?? 0);
 
 $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJECTED'];
 if ($status !== '' && !in_array($status, $allowedStatuses, true)) {
@@ -62,6 +65,15 @@ if ($dateTo !== '') {
   $where[] = "DATE(i.created_at) <= ?";
   $params[] = $dateTo;
 }
+if ($locType === 'common') {
+  $where[] = "i.is_common = 1";
+} elseif ($locType === 'unit') {
+  $where[] = "i.is_common = 0";
+}
+if ($locType === 'common' && $commonAreaId > 0) {
+  $where[] = "i.common_area_id = ?";
+  $params[] = $commonAreaId;
+}
 
 $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
 
@@ -71,12 +83,14 @@ SELECT
   i.issue_id,
   i.title,
   i.status,
+  i.is_common,
   i.created_at,
   a.area_name,
   c.category_name,
   u.name AS reporter_name,
   ip.file_path AS thumb_path,
-  w.name AS assigned_to
+  w.name AS assigned_to,
+  ca.area_name AS common_area_name
 FROM issues i
 LEFT JOIN areas a ON a.area_id = i.area_id
 LEFT JOIN issue_categories c ON c.category_id = i.category_id
@@ -96,6 +110,9 @@ LEFT JOIN (
 LEFT JOIN assignments ass ON ass.assignment_id = la.max_id
 LEFT JOIN users w ON w.user_id = ass.field_worker_id
 
+/* common area name */
+LEFT JOIN common_areas ca ON ca.common_area_id = i.common_area_id
+
 {$whereSql}
 ORDER BY i.created_at DESC, i.issue_id DESC
 ";
@@ -111,7 +128,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     header('Content-Disposition: attachment; filename="issues_export.csv"');
 
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Issue ID','Title','Category','Area','Status','Assigned To','Created At']);
+    fputcsv($out, ['Issue ID','Title','Category','Area','Location Type','Common Area','Status','Assigned To','Created At']);
 
     foreach ($rows as $r) {
       fputcsv($out, [
@@ -119,6 +136,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         $r['title'],
         $r['category_name'],
         $r['area_name'],
+        (int)$r['is_common'] === 1 ? 'Common Area' : 'Tenant Unit',
+        $r['common_area_name'] ?? '',
         $r['status'],
         $r['assigned_to'] ?: '',
         $r['created_at'],
@@ -252,12 +271,46 @@ function statusBadge(string $s): string {
         <input type="date" class="form-control" name="to" value="<?= h($dateTo) ?>">
       </div>
 
+      <div class="col-12 col-md-6 col-lg-2">
+        <label class="form-label">Location Type</label>
+        <select class="form-select" name="loc_type" id="locTypeSelect">
+          <option value="">All</option>
+          <option value="common" <?= ($locType === 'common') ? 'selected' : '' ?>>Common Area</option>
+          <option value="unit"   <?= ($locType === 'unit')   ? 'selected' : '' ?>>Tenant Unit</option>
+        </select>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-2" id="commonAreaWrap" <?= ($locType !== 'common') ? 'style="display:none"' : '' ?>>
+        <label class="form-label">Common Area</label>
+        <select class="form-select" name="common_area_id">
+          <option value="0">All</option>
+          <?php foreach ($commonAreas as $ca): ?>
+            <option value="<?= (int)$ca['common_area_id'] ?>" <?= ((int)$ca['common_area_id'] === $commonAreaId) ? 'selected' : '' ?>>
+              <?= h($ca['area_name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
       <div class="col-12 col-lg-1 d-grid">
         <button class="btn btn-brand" type="submit">Apply</button>
       </div>
 
     </form>
   </div>
+
+  <script>
+    (function () {
+      const locSel  = document.getElementById('locTypeSelect');
+      const wrap    = document.getElementById('commonAreaWrap');
+      locSel.addEventListener('change', function () {
+        wrap.style.display = this.value === 'common' ? '' : 'none';
+        if (this.value !== 'common') {
+          wrap.querySelector('select').value = '0';
+        }
+      });
+    })();
+  </script>
 
   <h4 class="fw-semibold mb-3">Issues</h4>
 
@@ -277,6 +330,7 @@ function statusBadge(string $s): string {
               <th>Title</th>
               <th style="width:140px;">Category</th>
               <th style="width:140px;">Branch</th>
+              <th style="width:130px;">Location</th>
               <th style="width:140px;">Status</th>
               <th style="width:160px;">Assigned To</th>
               <th style="width:180px;">Created</th>
@@ -290,6 +344,16 @@ function statusBadge(string $s): string {
                 <td class="fw-semibold"><?= h($r['title']) ?></td>
                 <td class="text-muted"><?= h($r['category_name'] ?? '') ?></td>
                 <td class="text-muted"><?= h($r['area_name'] ?? '') ?></td>
+                <td class="text-muted">
+                  <?php if ((int)$r['is_common'] === 1): ?>
+                    <span class="badge bg-primary bg-opacity-75">Common</span>
+                    <?php if (!empty($r['common_area_name'])): ?>
+                      <br><small><?= h($r['common_area_name']) ?></small>
+                    <?php endif; ?>
+                  <?php else: ?>
+                    <span class="badge bg-secondary bg-opacity-75">Unit</span>
+                  <?php endif; ?>
+                </td>
                 <td><span class="badge <?= statusBadge((string)$r['status']) ?>"><?= h($r['status']) ?></span></td>
                 <td class="text-muted"><?= h($r['assigned_to'] ?? '—') ?></td>
                 <td class="text-muted small"><?= h($r['created_at']) ?></td>
@@ -316,6 +380,14 @@ function statusBadge(string $s): string {
           </div>
           <div class="text-muted small mt-2">
             Category: <?= h($r['category_name'] ?? '') ?> • Branch: <?= h($r['area_name'] ?? '') ?>
+          </div>
+          <div class="text-muted small">
+            Location:
+            <?php if ((int)$r['is_common'] === 1): ?>
+              Common<?= !empty($r['common_area_name']) ? ' — ' . h($r['common_area_name']) : '' ?>
+            <?php else: ?>
+              Tenant Unit
+            <?php endif; ?>
           </div>
           <div class="text-muted small">
             Assigned: <?= h($r['assigned_to'] ?? '—') ?> • Created: <?= h($r['created_at']) ?>
