@@ -39,7 +39,7 @@ if ($gender !== '' && !in_array($gender, ['male','female','other'], true)) $erro
 if ($status === '' || !in_array($status, ['active','inactive'], true)) $errors['status'] = 'Invalid status.';
 if ($dob !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) $errors['dob'] = 'Invalid date format.';
 
-$allowedRoles = ['citizen','field worker','local authority','admin'];
+$allowedRoles = ['citizen','worker','authority','admin'];
 if ($role !== '' && !in_array($role, $allowedRoles, true)) {
   $errors['role'] = 'Invalid role.';
 }
@@ -54,7 +54,7 @@ if ($areaId !== null) {
 if ($errors) {
   $_SESSION['form_errors'] = $errors;
   $_SESSION['old'] = $old;
-  header("Location: " . BASE_URL . "/admin/create_user.php");
+  header("Location: " . BASE_URL . "/admin/add_user.php");
   exit;
 }
 
@@ -64,7 +64,7 @@ $st->execute([$email]);
 if ($st->fetchColumn()) {
   $_SESSION['form_errors'] = ['email' => 'Email already exists.'];
   $_SESSION['old'] = $old;
-  header("Location: " . BASE_URL . "/admin/create_user.php");
+  header("Location: " . BASE_URL . "/admin/add_user.php");
   exit;
 }
 
@@ -73,7 +73,7 @@ $st->execute([$nic]);
 if ($st->fetchColumn()) {
   $_SESSION['form_errors'] = ['nic' => 'NIC already exists.'];
   $_SESSION['old'] = $old;
-  header("Location: " . BASE_URL . "/admin/create_user.php");
+  header("Location: " . BASE_URL . "/admin/add_user.php");
   exit;
 }
 
@@ -106,8 +106,5 @@ try {
   exit;
 
 } catch (Throwable $e) {
-  $_SESSION['form_errors'] = ['general' => 'Server error. Please try again.'];
-  $_SESSION['old'] = $old;
-  header("Location: " . BASE_URL . "/admin/create_user.php");
-  exit;
+    die("DB ERROR: " . $e->getMessage()); // temp
 }

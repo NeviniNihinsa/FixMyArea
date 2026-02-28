@@ -113,7 +113,7 @@ if ($areaId > 0) {
           <div class="avatar-ring">
             <i class="bi bi-person"></i>
           </div>
-          <div class="text-muted small">Admin Profile</div>
+         <div class="text-muted small">Admin ID: #<?= (int)$me['user_id'] ?></div>
         </div>
 
         <div class="col-12 col-lg-8">
@@ -175,26 +175,7 @@ if ($areaId > 0) {
                   </label>
                 </div>
                 <div class="field-error"><?= h($errors['gender'] ?? '') ?></div>
-              </div>
-
-              <div class="col-12">
-                <label class="form-label">Address</label>
-                <input class="form-control" name="address" value="<?= h($address) ?>" disabled maxlength="255" placeholder="Optional">
-                <div class="field-error"><?= h($errors['address'] ?? '') ?></div>
-              </div>
-
-              <div class="col-12 col-md-6">
-                <label class="form-label">Area (info)</label>
-                <input class="form-control" value="<?= h($areaName) ?>" disabled>
-                <div class="field-error"></div>
-              </div>
-
-              <div class="col-12 col-md-6">
-                <label class="form-label">Role (info)</label>
-                <input class="form-control" value="<?= h(ucwords($roleRaw)) ?>" disabled>
-                <div class="field-error"></div>
-              </div>
-
+              </div>  
             </div>
           </form>
 
