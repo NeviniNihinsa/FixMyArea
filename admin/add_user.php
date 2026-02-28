@@ -112,8 +112,8 @@ function h($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'
           <select name="role" class="form-select" required>
             <option value="">Select role</option>
             <?php $r = (string)($old['role'] ?? ''); ?>
-            <option value="local authority" <?= $r==='local authority'?'selected':'' ?>>Property Manager</option>
-            <option value="field worker" <?= $r==='field worker'?'selected':'' ?>>Maintenance Technician</option>
+            <option value="authority" <?= $r==='authority'?'selected':'' ?>>Property Manager</option>
+            <option value="worker" <?= $r==='worker'?'selected':'' ?>>Maintenance Technician</option>
             <!-- (Optional) allow admin create citizens too -->
             <option value="citizen" <?= $r==='citizen'?'selected':'' ?>>Tenant</option>
           </select>

@@ -1,10 +1,6 @@
 <?php
 declare(strict_types=1);
-
-ini_set('display_errors', '1');          
-ini_set('display_startup_errors', '1');  
-error_reporting(E_ALL);                 
-
+              
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
@@ -18,7 +14,7 @@ require_once __DIR__ . '/../includes/navbar.php';
 $userId = (int)($_GET['user_id'] ?? 0);
 if ($userId <= 0) {
   echo "<div class='container py-4'><div class='alert alert-danger'>Invalid user id.</div></div>";
-  require_once __DIR__ . '/../includes/footer.php';
+  require_once __DIR__ . '/../includes/footer_internal.php';
   exit;
 }
 
@@ -48,20 +44,18 @@ $u = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$u) {
   echo "<div class='container py-4'><div class='alert alert-warning'>User not found.</div></div>";
-  require_once __DIR__ . '/../includes/footer.php';
+  require_once __DIR__ . '/../includes/footer_internal.php';
   exit;
 }
 
 function h($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
 $roleLabel = match (strtolower((string)$u['role'])) {
-  'citizen' => 'Citizen',
-  'worker' => 'Field Worker',
-  'field worker' => 'Field Worker',
-  'authority' => 'Local Authority',
-  'local authority' => 'Local Authority',
-  'admin' => 'Admin',
-  default => (string)$u['role'],
+  'citizen'   => 'Tenant',
+  'worker'    => 'Maintenance Technician',
+  'authority' => 'Property Manager',
+  'admin'     => 'Admin',
+  default     => ucfirst((string)$u['role']),
 };
 
 $statusLabel = (strtolower((string)$u['status']) === 'inactive') ? 'Inactive' : 'Active';
@@ -147,4 +141,4 @@ $statusLabel = (strtolower((string)$u['status']) === 'inactive') ? 'Inactive' : 
   </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
