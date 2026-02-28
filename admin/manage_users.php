@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Manage Users - Fixly';
+$page_title = 'Manage Users - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -53,11 +53,14 @@ $st->execute($params);
 $users = $st->fetchAll(PDO::FETCH_ASSOC);
 
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
-function normalizeRole(string $r): string {
-    $r = strtolower(trim($r));
-    if ($r === 'field worker') return 'worker';
-    if ($r === 'local authority') return 'authority';
-    return $r;
+function displayRole(string $r): string {
+    return match(strtolower(trim($r))) {
+        'authority' => 'Property Manager',
+        'worker'    => 'Maintenance Technician',
+        'citizen'   => 'Tenant',
+        'admin'     => 'Admin',
+        default     => ucfirst($r),
+    };
 }
 ?>
 
@@ -83,8 +86,8 @@ function normalizeRole(string $r): string {
         <select class="form-select" name="role">
           <option value="">All</option>
           <option value="citizen" <?= $role==='citizen'?'selected':'' ?>>Tenant</option>
-          <option value="field worker" <?= $role==='field worker'?'selected':'' ?>>Maintenance Technician</option>
-          <option value="local authority" <?= $role==='local authority'?'selected':'' ?>>Property Manager</option>
+          <option value="worker" <?= $role==='worker'?'selected':'' ?>>Maintenance Technician</option>
+          <option value="authority" <?= $role==='authority'?'selected':'' ?>>Property Manager</option>
           <option value="admin" <?= $role==='admin'?'selected':'' ?>>Admin</option>
         </select>
       </div>
@@ -126,7 +129,7 @@ function normalizeRole(string $r): string {
               ?>
               <tr>
                 <td>#<?= (int)$u['user_id'] ?></td>
-                <td><?= h(ucwords(str_replace('_',' ', normalizeRole((string)$u['role'])))) ?></td>
+                <td><?= h(displayRole((string)$u['role'])) ?></td>
                 <td><?= h((string)$u['name']) ?></td>
                 <td><?= h((string)($u['area_name'] ?? '—')) ?></td>
                 <td><span class="badge <?= $badge ?>"><?= h($stTxt) ?></span></td>

@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Manage Issues - FixMyArea';
+$page_title = 'Manage Issues - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -195,7 +195,7 @@ function statusBadge(string $s): string {
     <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
   <?php endif; ?>
 
-  <!-- Filter box -->
+  <!-- Filter box (matches low-fi) -->
   <div class="card-dark p-3 p-md-4 mb-4">
     <form method="GET" class="row g-3 align-items-end">
 
@@ -334,4 +334,4 @@ function statusBadge(string $s): string {
 
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
