@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Admin Profile - FixMyArea';
+$page_title = 'Admin Profile - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php'; 
 

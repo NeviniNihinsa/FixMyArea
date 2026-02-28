@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Manage Users - FixMyArea';
+$page_title = 'Manage Users - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -82,9 +82,9 @@ function normalizeRole(string $r): string {
         <label class="form-label text-muted small">Role</label>
         <select class="form-select" name="role">
           <option value="">All</option>
-          <option value="citizen" <?= $role==='citizen'?'selected':'' ?>>Citizen</option>
-          <option value="field worker" <?= $role==='field worker'?'selected':'' ?>>Field Worker</option>
-          <option value="local authority" <?= $role==='local authority'?'selected':'' ?>>Local Authority</option>
+          <option value="citizen" <?= $role==='citizen'?'selected':'' ?>>Tenant</option>
+          <option value="field worker" <?= $role==='field worker'?'selected':'' ?>>Maintenance Technician</option>
+          <option value="local authority" <?= $role==='local authority'?'selected':'' ?>>Property Manager</option>
           <option value="admin" <?= $role==='admin'?'selected':'' ?>>Admin</option>
         </select>
       </div>
@@ -113,7 +113,7 @@ function normalizeRole(string $r): string {
               <th style="width:90px;">UserID</th>
               <th style="width:160px;">User Role</th>
               <th>Name</th>
-              <th style="width:160px;">Area</th>
+              <th style="width:160px;">Branch</th>
               <th style="width:120px;">Status</th>
               <th style="width:190px;">Action</th>
             </tr>
@@ -165,7 +165,7 @@ function normalizeRole(string $r): string {
               <span class="badge <?= $badge ?>"><?= h($stTxt) ?></span>
             </div>
             <div class="text-muted small mt-1">
-              Role: <?= h((string)$u['role']) ?> · Area: <?= h((string)($u['area_name'] ?? '—')) ?>
+              Role: <?= h((string)$u['role']) ?> · Branch: <?= h((string)($u['area_name'] ?? '—')) ?>
             </div>
             <div class="d-flex gap-2 flex-wrap mt-3">
               <a class="btn btn-sm btn-outline-brand"
