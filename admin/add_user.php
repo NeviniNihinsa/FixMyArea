@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Add User - FixMyArea';
+$page_title = 'Add User - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -94,9 +94,9 @@ function h($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'
         </div>
 
         <div class="col-12 col-md-6">
-          <label class="form-label">Area</label>
+          <label class="form-label">Branch</label>
           <select name="area_id" class="form-select">
-            <option value="">Select area</option>
+            <option value="">Select Branch</option>
             <?php $aid = (string)($old['area_id'] ?? ''); ?>
             <?php foreach ($areas as $a): ?>
               <option value="<?= (int)$a['area_id'] ?>" <?= $aid===(string)$a['area_id']?'selected':'' ?>>
@@ -112,10 +112,10 @@ function h($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'
           <select name="role" class="form-select" required>
             <option value="">Select role</option>
             <?php $r = (string)($old['role'] ?? ''); ?>
-            <option value="local authority" <?= $r==='local authority'?'selected':'' ?>>Local Authority</option>
-            <option value="field worker" <?= $r==='field worker'?'selected':'' ?>>Field Worker</option>
+            <option value="authority" <?= $r==='authority'?'selected':'' ?>>Property Manager</option>
+            <option value="worker" <?= $r==='worker'?'selected':'' ?>>Maintenance Technician</option>
             <!-- (Optional) allow admin create citizens too -->
-            <option value="citizen" <?= $r==='citizen'?'selected':'' ?>>Citizen</option>
+            <option value="citizen" <?= $r==='citizen'?'selected':'' ?>>Tenant</option>
           </select>
           <div class="field-error"><?= h($errors['role'] ?? '') ?></div>
         </div>

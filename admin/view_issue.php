@@ -16,7 +16,7 @@ $adminId = (int)($_SESSION['user_id'] ?? 0);
 $issueId = (int)($_GET['issue_id'] ?? 0);
 if ($issueId <= 0) {
     echo '<div class="container py-4"><div class="alert alert-danger">Invalid issue id.</div></div>';
-    require_once __DIR__ . '/../includes/footer.php';
+    require_once __DIR__ . '/../includes/footer_internal.php';
     exit;
 }
 
@@ -29,7 +29,7 @@ $st = $pdo->prepare("
   SELECT
     i.issue_id, i.title, i.description, i.status, i.created_at,
     i.lat, i.lng,
-    u.user_id AS reporter_id, u.name AS reporter_name,
+    u.user_id AS reporter_id, u.name AS reporter_name, u.address AS unit_number,
     a.area_name,
     c.category_name
   FROM issues i
@@ -44,7 +44,7 @@ $issue = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$issue) {
     echo '<div class="container py-4"><div class="alert alert-danger">Issue not found.</div></div>';
-    require_once __DIR__ . '/../includes/footer.php';
+    require_once __DIR__ . '/../includes/footer_internal.php';
     exit;
 }
 
@@ -114,8 +114,33 @@ try {
     $comments = [];
 }
 
+// 6) Citizen Feedback / Ratings
+$feedbacks = [];
+try {
+    $st = $pdo->prepare("
+      SELECT f.overall_rating, f.worker_rating, f.authority_rating,
+             f.feedback_text, f.created_at,
+             u.name AS citizen_name
+      FROM feedback_ratings f
+      JOIN users u ON u.user_id = f.citizen_user_id
+      WHERE f.issue_id = ?
+      ORDER BY f.created_at DESC
+    ");
+    $st->execute([$issueId]);
+    $feedbacks = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $feedbacks = [];
+}
+
 function h(?string $s): string {
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+}
+
+function stars(int $n): string {
+    $n = max(0, min(5, $n));
+    $out = '';
+    for ($i = 1; $i <= 5; $i++) $out .= ($i <= $n) ? '★' : '☆';
+    return $out;
 }
 
 $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJECTED'];
@@ -134,6 +159,8 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
         <div class="text-muted small">
           Reported by: <span class="fw-semibold"><?= h($issue['reporter_name']) ?></span>
           &nbsp;|&nbsp; Category: <span class="fw-semibold"><?= h($issue['category_name'] ?? '-') ?></span>
+          &nbsp;|&nbsp; Branch: <span class="fw-semibold"><?= h($issue['area_name'] ?? '-') ?></span>
+          &nbsp;|&nbsp; Unit Number: <span class="fw-semibold"><?= h($issue['unit_number'] ?? '-') ?></span>
           &nbsp;|&nbsp; Status: <span class="badge bg-secondary"><?= h($issue['status']) ?></span>
         </div>
       </div>
@@ -264,6 +291,72 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
           <?php endif; ?>
         </div>
 
+                        <!-- Citizen Ratings & Feedback -->
+                <div class="card-dark p-4 mt-4">
+                  <h5 class="fw-semibold mb-3">Citizen Ratings &amp; Feedback</h5>
+
+                  <?php if (empty($feedbacks)): ?>
+                    <div class="text-muted">No feedback submitted yet.</div>
+                  <?php else: ?>
+                    <div class="d-flex flex-column gap-3">
+                      <?php foreach ($feedbacks as $fb): ?>
+                        <div class="p-3" style="border:1px solid rgba(255,255,255,0.10); border-radius:12px;">
+
+                          <div class="small text-muted mb-2">
+                            <?= h($fb['citizen_name']) ?> &nbsp;·&nbsp; <?= h($fb['created_at']) ?>
+                          </div>
+
+                          <div class="row g-2 mb-2">
+                            <div class="col-12 col-sm-4">
+                              <div class="small text-muted">Overall Issue Fixation</div>
+                              <div style="color:#ffd36b; font-size:1.1rem;">
+                                <?= stars((int)$fb['overall_rating']) ?>
+                                <span class="small text-muted">(<?= (int)$fb['overall_rating'] ?>/5)</span>
+                              </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                              <div class="small text-muted">Field Worker</div>
+                              <div style="color:#ffd36b; font-size:1.1rem;">
+                                <?= stars((int)$fb['worker_rating']) ?>
+                                <span class="small text-muted">(<?= (int)$fb['worker_rating'] ?>/5)</span>
+                              </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                              <div class="small text-muted">Local Authority</div>
+                              <div style="color:#ffd36b; font-size:1.1rem;">
+                                <?= stars((int)$fb['authority_rating']) ?>
+                                <span class="small text-muted">(<?= (int)$fb['authority_rating'] ?>/5)</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <?php if (!empty($fb['feedback_text'])): ?>
+                            <div class="small text-muted mt-2">Feedback:</div>
+                            <div><?= nl2br(h($fb['feedback_text'])) ?></div>
+                          <?php endif; ?>
+
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+
+                    <!-- Average summary -->
+                    <?php
+                      $avgOverall   = round(array_sum(array_column($feedbacks, 'overall_rating'))   / count($feedbacks), 1);
+                      $avgWorker    = round(array_sum(array_column($feedbacks, 'worker_rating'))    / count($feedbacks), 1);
+                      $avgAuthority = round(array_sum(array_column($feedbacks, 'authority_rating')) / count($feedbacks), 1);
+                    ?>
+                    <div class="mt-3 p-3" style="background:rgba(255,255,255,0.04); border-radius:12px;">
+                      <div class="small fw-semibold mb-2">Average Ratings (<?= count($feedbacks) ?> response<?= count($feedbacks) > 1 ? 's' : '' ?>)</div>
+                      <div class="d-flex gap-4 flex-wrap small">
+                        <span>Overall: <strong style="color:#ffd36b;"><?= $avgOverall ?>/5</strong></span>
+                        <span>Field Worker: <strong style="color:#ffd36b;"><?= $avgWorker ?>/5</strong></span>
+                        <span>Local Authority: <strong style="color:#ffd36b;"><?= $avgAuthority ?>/5</strong></span>
+                      </div>
+                    </div>
+
+                  <?php endif; ?>
+                </div>
+
       </div>
 
       <!-- RIGHT: Status update + timeline -->
@@ -332,4 +425,4 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
   </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>

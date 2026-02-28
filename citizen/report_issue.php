@@ -4,56 +4,57 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
-require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php';
 
 require_roles(['citizen']);
 
+$page_title = 'Report an Issue - FixMyArea';
+require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/navbar.php';
+
 $userId = (int)($_SESSION['user_id'] ?? 0);
+if ($userId <= 0) {
+  header("Location: " . BASE_URL . "/auth/login.php");
+  exit;
+}
 
 // fetch categories
-$categories = $pdo->query("SELECT category_id, category_name FROM issue_categories ORDER BY category_name")->fetchAll(PDO::FETCH_ASSOC);
+$categories = $pdo->query("
+  SELECT category_id, category_name
+  FROM issue_categories
+  ORDER BY category_name
+")->fetchAll(PDO::FETCH_ASSOC);
+
+// fetch common areas
+$commonAreas = $pdo->query("
+  SELECT common_area_id, area_name
+  FROM common_areas
+  ORDER BY area_name
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // fetch logged citizen area
-$stmt = $pdo->prepare("SELECT u.area_id, a.area_name FROM users u LEFT JOIN areas a ON a.area_id=u.area_id WHERE u.user_id=? LIMIT 1");
+$stmt = $pdo->prepare("
+  SELECT u.area_id, a.area_name
+  FROM users u
+  LEFT JOIN areas a ON a.area_id=u.area_id
+  WHERE u.user_id=? LIMIT 1
+");
 $stmt->execute([$userId]);
 $me = $stmt->fetch(PDO::FETCH_ASSOC);
 
 $myAreaId   = (int)($me['area_id'] ?? 0);
-$myAreaName = $me['area_name'] ?? '';
+$myAreaName = (string)($me['area_name'] ?? '');
 
-// errors (from session)
+// errors/old (from session)
 $errors = $_SESSION['form_errors'] ?? [];
 $old    = $_SESSION['old'] ?? [];
 unset($_SESSION['form_errors'], $_SESSION['old']);
 
-// flash messages (success/error)
-$flashSuccess = $_SESSION['flash_success'] ?? '';
-$flashError   = $_SESSION['flash_error'] ?? '';
-unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+// defaults
+$oldIsCommon = (string)($old['is_common'] ?? '0'); // '0' personal, '1' common
+$oldCommonAreaId = (string)($old['common_area_id'] ?? '');
 ?>
-
-<style>
-  .area-readonly{
-    background: #e9ecef !important;
-    color: #000 !important;
-    border-color: rgba(0,0,0,0.15) !important;
-    opacity: 1 !important;
-    -webkit-text-fill-color: #000 !important; /* important for Chrome */
-    cursor: not-allowed;
-  }
-</style>
-
-<div class="container py-4">
-  <h2 class="fw-bold mb-3">Report an Issue</h2>
-
-  <?php if ($flashSuccess): ?>
-    <div class="alert alert-success"><?= htmlspecialchars($flashSuccess) ?></div>
-  <?php endif; ?>
-
-  <?php if ($flashError): ?>
-    <div class="alert alert-danger"><?= htmlspecialchars($flashError) ?></div>
-  <?php endif; ?>
+<div class="container py-4 app-container">
+  <h2 class="fw-bold mb-4">Report an Issue</h2>
 
   <?php if (!empty($errors['general'])): ?>
     <div class="alert alert-danger"><?= htmlspecialchars($errors['general']) ?></div>
@@ -63,7 +64,11 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
     <!-- LEFT: Form -->
     <div class="col-12 col-lg-7">
       <div class="card-dark p-4">
-        <form method="POST" action="<?= BASE_URL ?>/actions/issue_create.php" enctype="multipart/form-data" id="reportForm" novalidate>
+        <form method="POST"
+              action="<?= BASE_URL ?>/actions/issue_create.php"
+              enctype="multipart/form-data"
+              id="reportForm"
+              novalidate>
 
           <!-- Title -->
           <div class="mb-3">
@@ -72,6 +77,42 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
                    value="<?= htmlspecialchars($old['title'] ?? '') ?>"
                    maxlength="120" required>
             <div class="field-error"><?= htmlspecialchars($errors['title'] ?? '') ?></div>
+          </div>
+
+          <!-- Common / Personal -->
+          <div class="mb-3">
+            <label class="form-label d-block mb-2">Common issue / Personal issue</label>
+
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="is_common" id="isPersonal" value="0"
+                  <?= ($oldIsCommon !== '1') ? 'checked' : '' ?>>
+                <label class="form-check-label" for="isPersonal">Personal</label>
+              </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="is_common" id="isCommon" value="1"
+                  <?= ($oldIsCommon === '1') ? 'checked' : '' ?>>
+                <label class="form-check-label" for="isCommon">Common</label>
+              </div>
+            </div>
+
+            <div class="field-error"><?= htmlspecialchars($errors['is_common'] ?? '') ?></div>
+          </div>
+
+          <!-- Common Area (only if Common selected) -->
+          <div class="mb-3" id="commonAreaWrap" style="display:none;">
+            <label class="form-label">Common Area</label>
+            <select name="common_area_id" class="form-select" id="commonAreaSelect">
+              <option value="">Select common area</option>
+              <?php foreach ($commonAreas as $ca): ?>
+                <option value="<?= (int)$ca['common_area_id'] ?>"
+                  <?= ((string)$ca['common_area_id'] === $oldCommonAreaId) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($ca['area_name']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+            <div class="field-error"><?= htmlspecialchars($errors['common_area_id'] ?? '') ?></div>
           </div>
 
           <!-- Category -->
@@ -99,7 +140,8 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
           <!-- Area (auto from user, but keep hidden id) -->
           <div class="mb-3">
             <label class="form-label">Your Area</label>
-            <input type="text" class="form-control area-readonly" value="<?= htmlspecialchars($myAreaName ?: 'Not set') ?>" readonly>
+            <input type="text" class="form-control"
+                   value="<?= htmlspecialchars($myAreaName ?: 'Not set') ?>" disabled>
             <input type="hidden" name="area_id" value="<?= (int)$myAreaId ?>">
             <div class="field-error"><?= htmlspecialchars($errors['area_id'] ?? '') ?></div>
           </div>
@@ -108,12 +150,14 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
           <div class="row g-3">
             <div class="col-12 col-md-6">
               <label class="form-label">Latitude</label>
-              <input type="text" name="lat" class="form-control" value="<?= htmlspecialchars($old['lat'] ?? '') ?>" required>
+              <input type="text" name="lat" class="form-control"
+                     value="<?= htmlspecialchars($old['lat'] ?? '') ?>" required>
               <div class="field-error"><?= htmlspecialchars($errors['lat'] ?? '') ?></div>
             </div>
             <div class="col-12 col-md-6">
               <label class="form-label">Longitude</label>
-              <input type="text" name="lng" class="form-control" value="<?= htmlspecialchars($old['lng'] ?? '') ?>" required>
+              <input type="text" name="lng" class="form-control"
+                     value="<?= htmlspecialchars($old['lng'] ?? '') ?>" required>
               <div class="field-error"><?= htmlspecialchars($errors['lng'] ?? '') ?></div>
             </div>
           </div>
@@ -126,17 +170,17 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
           <!-- Photo -->
           <div class="mt-4 mb-3">
             <label class="form-label">Photo Evidence (JPG/PNG/WebP, max 5MB)</label>
-            <input type="file" name="photo" class="form-control" accept="image/jpeg,image/png,image/webp" required>
+            <input type="file" name="photo" class="form-control"
+                   accept="image/jpeg,image/png,image/webp" required>
             <div class="field-error"><?= htmlspecialchars($errors['photo'] ?? '') ?></div>
           </div>
 
           <button class="btn btn-brand w-100 py-2" type="submit">Submit Issue</button>
-
         </form>
       </div>
     </div>
 
-    <!-- RIGHT: Map placeholder (later Leaflet) -->
+    <!-- RIGHT: Map placeholder -->
     <div class="col-12 col-lg-5">
       <div class="card-dark p-3 h-100">
         <div class="ratio ratio-4x3" style="border-radius: 12px; overflow:hidden;">
@@ -159,6 +203,18 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 (() => {
   const form = document.getElementById('reportForm');
   const btn = document.getElementById('btnLocation');
+
+  const commonWrap = document.getElementById('commonAreaWrap');
+  const commonSelect = document.getElementById('commonAreaSelect');
+
+  const toggleCommon = () => {
+    const isCommon = form.querySelector('input[name="is_common"]:checked')?.value === "1";
+    commonWrap.style.display = isCommon ? '' : 'none';
+    if (!isCommon) commonSelect.value = '';
+  };
+
+  form.querySelectorAll('input[name="is_common"]').forEach(r => r.addEventListener('change', toggleCommon));
+  toggleCommon();
 
   btn.addEventListener('click', () => {
     if (!navigator.geolocation) {
@@ -196,28 +252,20 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
     const lng   = form.lng.value.trim();
     const photo = form.photo.files[0];
 
+    const isCommon = form.querySelector('input[name="is_common"]:checked')?.value || "0";
+    const commonAreaId = commonSelect.value;
+
     const setErr = (name, msg) => {
       const el = form.querySelector(`[name="${name}"]`);
-      if (!el) return;
-
-      // special case: hidden area_id (error div is after hidden input)
-      if (name === 'area_id') {
-        const errDiv = el.nextElementSibling;
-        if (errDiv) errDiv.textContent = msg;
-        return;
-      }
-
-      if (el.nextElementSibling) el.nextElementSibling.textContent = msg;
+      if (el && el.nextElementSibling) el.nextElementSibling.textContent = msg;
     };
 
     if (!title) { setErr('title', 'Title is required.'); ok = false; }
-    else if (title.length < 3) { setErr('title', 'Title must be at least 3 characters.'); ok = false; }
-
     if (!cat)   { setErr('category_id', 'Category is required.'); ok = false; }
     if (!desc)  { setErr('description', 'Description is required.'); ok = false; }
-    else if (desc.length < 10) { setErr('description', 'Description must be at least 10 characters.'); ok = false; }
-
     if (!area || area === "0") { setErr('area_id', 'Your area is not set. Update profile area first.'); ok = false; }
+
+    if (isCommon === "1" && !commonAreaId) { setErr('common_area_id', 'Common area is required for common issues.'); ok = false; }
 
     const numLat = Number(lat), numLng = Number(lng);
     if (!lat || Number.isNaN(numLat) || numLat < -90 || numLat > 90) { setErr('lat', 'Enter valid latitude (-90 to 90).'); ok = false; }

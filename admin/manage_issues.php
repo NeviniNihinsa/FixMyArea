@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Manage Issues - FixMyArea';
+$page_title = 'Manage Issues - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -195,7 +195,7 @@ function statusBadge(string $s): string {
     <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
   <?php endif; ?>
 
-  <!-- Filter box -->
+  <!-- Filter box (matches low-fi) -->
   <div class="card-dark p-3 p-md-4 mb-4">
     <form method="GET" class="row g-3 align-items-end">
 
@@ -209,7 +209,7 @@ function statusBadge(string $s): string {
       </div>
 
       <div class="col-12 col-md-6 col-lg-2">
-        <label class="form-label">Area</label>
+        <label class="form-label">Branch</label>
         <select class="form-select" name="area_id">
           <option value="0">All</option>
           <?php foreach ($areas as $a): ?>
@@ -276,7 +276,7 @@ function statusBadge(string $s): string {
               <th style="width:110px;">Issue ID</th>
               <th>Title</th>
               <th style="width:140px;">Category</th>
-              <th style="width:140px;">Area</th>
+              <th style="width:140px;">Branch</th>
               <th style="width:140px;">Status</th>
               <th style="width:160px;">Assigned To</th>
               <th style="width:180px;">Created</th>
@@ -315,7 +315,7 @@ function statusBadge(string $s): string {
             <span class="badge <?= statusBadge((string)$r['status']) ?>"><?= h($r['status']) ?></span>
           </div>
           <div class="text-muted small mt-2">
-            Category: <?= h($r['category_name'] ?? '') ?> • Area: <?= h($r['area_name'] ?? '') ?>
+            Category: <?= h($r['category_name'] ?? '') ?> • Branch: <?= h($r['area_name'] ?? '') ?>
           </div>
           <div class="text-muted small">
             Assigned: <?= h($r['assigned_to'] ?? '—') ?> • Created: <?= h($r['created_at']) ?>
@@ -334,4 +334,4 @@ function statusBadge(string $s): string {
 
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
