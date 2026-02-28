@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
@@ -14,58 +15,78 @@ if ($userId <= 0) {
     exit;
 }
 
-// Find citizen's area_id + name
-$stmt = $pdo->prepare("SELECT area_id, name FROM users WHERE user_id = ? LIMIT 1");
-$stmt->execute([$userId]);
-$me = $stmt->fetch(PDO::FETCH_ASSOC);
-
-$myAreaId = $me['area_id'] ?? null;
-$citizenName = $me['name'] ?? ($_SESSION['name'] ?? 'Citizen');
-
-// Areas dropdown
-$areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name ASC")->fetchAll(PDO::FETCH_ASSOC);
-
-$selectedAreaId = isset($_GET['area_id']) ? (int)$_GET['area_id'] : (int)($myAreaId ?? 0);
-if ($selectedAreaId <= 0 && !empty($areas)) {
-    $selectedAreaId = (int)$areas[0]['area_id'];
+function h($v): string {
+    return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 }
 
-function count_issues(PDO $pdo, string $whereSql = "1", array $params = []): int {
-    $sql = "SELECT COUNT(*) FROM issues WHERE {$whereSql}";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    return (int)$st->fetchColumn();
+/* -----------------------------
+   1) Get citizen info + branch
+------------------------------ */
+$st = $pdo->prepare("
+  SELECT u.area_id, u.name, a.area_name
+  FROM users u
+  LEFT JOIN areas a ON a.area_id = u.area_id
+  WHERE u.user_id = ?
+  LIMIT 1
+");
+$st->execute([$userId]);
+$me = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+
+$myAreaId   = (int)($me['area_id'] ?? 0);
+$myAreaName = (string)($me['area_name'] ?? 'Not set');
+$citizenName = (string)($me['name'] ?? ($_SESSION['name'] ?? 'Citizen'));
+
+/* -----------------------------
+   2) Stats (branch totals + my totals)
+------------------------------ */
+$building = ['total_reported' => 0, 'total_fixed' => 0];
+$mine     = ['my_reported' => 0, 'my_fixed' => 0];
+
+if ($myAreaId > 0) {
+    // Building totals (issues in my branch)
+    $st = $pdo->prepare("
+      SELECT
+        COUNT(*) AS total_reported,
+        SUM(CASE WHEN status IN ('COMPLETED','CLOSED') THEN 1 ELSE 0 END) AS total_fixed
+      FROM issues
+      WHERE area_id = ?
+    ");
+    $st->execute([$myAreaId]);
+    $building = $st->fetch(PDO::FETCH_ASSOC) ?: $building;
 }
 
-// Stats
-$totalIssues = count_issues($pdo);
-$totalFixed  = count_issues($pdo, "status IN ('COMPLETED','CLOSED')");
+// My totals (issues reported by me)
+$st = $pdo->prepare("
+  SELECT
+    COUNT(*) AS my_reported,
+    SUM(CASE WHEN status IN ('COMPLETED','CLOSED') THEN 1 ELSE 0 END) AS my_fixed
+  FROM issues
+  WHERE reporter_user_id = ?
+");
+$st->execute([$userId]);
+$mine = $st->fetch(PDO::FETCH_ASSOC) ?: $mine;
 
-$areaReported = 0;
-$areaFixed = 0;
-if ($selectedAreaId > 0) {
-    $areaReported = count_issues($pdo, "area_id = ?", [$selectedAreaId]);
-    $areaFixed    = count_issues($pdo, "area_id = ? AND status IN ('COMPLETED','CLOSED')", [$selectedAreaId]);
-}
-
-// Recent local issues (3 latest)
+/* -----------------------------
+   3) Recent issues (my branch)
+   (Removed word 'Local' in UI)
+------------------------------ */
 $recent = [];
-if ($selectedAreaId > 0) {
+if ($myAreaId > 0) {
     $st = $pdo->prepare("
         SELECT issue_id, title, status, created_at
         FROM issues
         WHERE area_id = ?
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, issue_id DESC
         LIMIT 3
     ");
-    $st->execute([$selectedAreaId]);
+    $st->execute([$myAreaId]);
     $recent = $st->fetchAll(PDO::FETCH_ASSOC);
 }
 ?>
 
 <div class="container py-4">
 
-  <h2 class="fw-bold mb-4">Welcome <?= htmlspecialchars($citizenName) ?></h2>
+  <h2 class="fw-bold mb-4">Welcome <?= h($citizenName) ?></h2>
 
   <div class="row g-4">
     <!-- LEFT: Map placeholder -->
@@ -92,46 +113,52 @@ if ($selectedAreaId > 0) {
     <div class="col-12 col-lg-6">
       <div class="card-dark p-4 h-100">
 
+        <!-- Building totals (branch totals) -->
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <div class="card-dark p-3">
               <div class="text-muted small">Total Reported Issues</div>
-              <div class="fs-3 fw-bold"><?= $totalIssues ?></div>
+              <div class="fs-3 fw-bold"><?= (int)$building['total_reported'] ?></div>
+              <div class="small text-muted">In your branch</div>
             </div>
           </div>
           <div class="col-12 col-md-6">
             <div class="card-dark p-3">
               <div class="text-muted small">Total Reported Fixed</div>
-              <div class="fs-3 fw-bold"><?= $totalFixed ?></div>
+              <div class="fs-3 fw-bold"><?= (int)$building['total_fixed'] ?></div>
+              <div class="small text-muted">In your branch</div>
             </div>
           </div>
         </div>
 
         <hr style="border-color: rgba(241,246,246,0.10);" class="my-4">
 
-        <form method="GET" class="d-flex flex-column flex-md-row gap-2 align-items-md-center">
-          <label class="text-muted mb-0">Issues reported in</label>
-          <select name="area_id" class="form-select" style="max-width: 260px;" onchange="this.form.submit()">
-            <?php foreach ($areas as $a): ?>
-              <option value="<?= (int)$a['area_id'] ?>" <?= ((int)$a['area_id'] === $selectedAreaId) ? 'selected' : '' ?>>
-                <?= htmlspecialchars($a['area_name']) ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-          <noscript><button class="btn btn-brand">Apply</button></noscript>
-        </form>
+        <!-- Removed area dropdown: show readonly branch -->
+        <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center">
+          <div class="text-muted">Issues reported in</div>
+          <input
+            type="text"
+            class="form-control"
+            style="max-width: 260px; opacity: 0.9;"
+            value="<?= h($myAreaName) ?>"
+            readonly
+          >
+        </div>
 
+        <!-- Tenant totals (my issues) -->
         <div class="row g-3 mt-1">
           <div class="col-12 col-md-6">
             <div class="card-dark p-3">
               <div class="text-muted small">Issues Reported</div>
-              <div class="fs-3 fw-bold"><?= $areaReported ?></div>
+              <div class="fs-3 fw-bold"><?= (int)$mine['my_reported'] ?></div>
+              <div class="small text-muted">By you</div>
             </div>
           </div>
           <div class="col-12 col-md-6">
             <div class="card-dark p-3">
               <div class="text-muted small">Issues Fixed</div>
-              <div class="fs-3 fw-bold"><?= $areaFixed ?></div>
+              <div class="fs-3 fw-bold"><?= (int)$mine['my_fixed'] ?></div>
+              <div class="small text-muted">By you</div>
             </div>
           </div>
         </div>
@@ -140,12 +167,14 @@ if ($selectedAreaId > 0) {
     </div>
   </div>
 
-  <!-- Recent Local Issues -->
+  <!-- Recent Issues (removed 'Local') -->
   <div class="mt-4 card-dark p-4">
-    <h4 class="fw-semibold mb-3">Recent Local Issues</h4>
+    <h4 class="fw-semibold mb-3">Recent Issues</h4>
 
-    <?php if (empty($recent)): ?>
-      <div class="text-muted">No issues found for this area yet.</div>
+    <?php if ($myAreaId <= 0): ?>
+      <div class="text-muted">Your branch is not set. Please update your profile and select a branch.</div>
+    <?php elseif (empty($recent)): ?>
+      <div class="text-muted">No issues found for your branch yet.</div>
     <?php else: ?>
       <div class="table-responsive">
         <table class="table table-dark-custom align-middle mb-0">
@@ -162,9 +191,9 @@ if ($selectedAreaId > 0) {
             <?php foreach ($recent as $r): ?>
               <tr>
                 <td>#<?= (int)$r['issue_id'] ?></td>
-                <td><?= htmlspecialchars($r['title']) ?></td>
-                <td><span class="badge bg-secondary"><?= htmlspecialchars($r['status']) ?></span></td>
-                <td class="text-muted"><?= htmlspecialchars($r['created_at']) ?></td>
+                <td><?= h($r['title']) ?></td>
+                <td><span class="badge bg-secondary"><?= h($r['status']) ?></span></td>
+                <td class="text-muted"><?= h($r['created_at']) ?></td>
                 <td>
                   <a class="btn btn-sm btn-outline-brand"
                      href="<?= BASE_URL ?>/citizen/issue_view.php?issue_id=<?= (int)$r['issue_id'] ?>">
