@@ -171,7 +171,7 @@ if ($areaId > 0) {
                   </label>
                   <label class="d-flex align-items-center gap-2">
                     <input type="radio" name="gender" value="other" <?= $checked('other') ?> disabled>
-                    <span>Other</span>
+                    <span>Other</span>git 
                   </label>
                 </div>
                 <div class="field-error"><?= h($errors['gender'] ?? '') ?></div>
