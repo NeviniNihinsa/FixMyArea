@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
+require_once __DIR__ . '/../includes/notify.php';
 
 require_roles(['citizen']);
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -156,6 +157,29 @@ try {
     VALUES (?, 'PENDING', ?, 'Issue reported by citizen', NOW())
   ");
   $stmt->execute([$issueId, $userId]);
+
+  // notify the authority of this citizen's branch/area
+  $st = $pdo->prepare("
+    SELECT user_id
+    FROM users
+    WHERE role='authority' AND area_id=? AND status='active'
+    ORDER BY user_id ASC
+    LIMIT 1
+  ");
+  $st->execute([$areaId]);
+  $authorityId = (int)$st->fetchColumn();
+
+  if ($authorityId > 0) {
+    create_notification(
+      $pdo,
+      $authorityId,
+      $issueId,
+      'NEW_ISSUE',
+      'New issue reported',
+      "A new issue #{$issueId} was reported in your branch.",
+      "/authority/view_issue.php?issue_id={$issueId}"
+    );
+  }
 
   $pdo->commit();
 
