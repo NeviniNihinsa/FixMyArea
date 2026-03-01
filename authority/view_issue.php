@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
+require_once __DIR__ . '/../includes/notify.php'; // ✅ ADDED (only change #1)
 
 require_roles(['authority', 'local authority']);
 
@@ -125,6 +126,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       exit;
     }
 
+    // Get reporter id + worker name (used for notifications)
+    $st = $pdo->prepare("
+      SELECT i.reporter_user_id, u.name AS worker_name
+      FROM issues i
+      JOIN users u ON u.user_id = ?
+      WHERE i.issue_id = ?
+      LIMIT 1
+    ");
+    $st->execute([$workerId, $postIssueId]);
+    $tmp = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+    $reporterId = (int)($tmp['reporter_user_id'] ?? 0);
+    $workerName = (string)($tmp['worker_name'] ?? 'Field Worker');
+
     /**
      * IMPORTANT: your DB has FK:
      * assignments.assigned_by_authority_id -> users.user_id
@@ -144,6 +158,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       LIMIT 1
     ");
     $upd->execute([$postIssueId, $myAreaId]);
+
+    // ✅ ADDED (only change #2): insert notifications
+    create_notification(
+      $pdo,
+      $workerId,
+      $postIssueId,
+      'ASSIGNMENT',
+      'New assignment',
+      "You have been assigned a new issue (#{$postIssueId}).",
+      "/worker/view_issue.php?issue_id={$postIssueId}"
+    );
+
+    if ($reporterId > 0) {
+      create_notification(
+        $pdo,
+        $reporterId,
+        $postIssueId,
+        'STATUS',
+        'Issue assigned',
+        "Your issue (#{$postIssueId}) has been assigned to {$workerName}.",
+        "/citizen/issue_view.php?issue_id={$postIssueId}"
+      );
+    }
 
     $pdo->commit();
 
@@ -264,7 +301,7 @@ $currentStatus = (string)$issue['status'];
 ------------------------------ */
 $page_title = 'View Issue - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php'; // ✅ must be logged-in navbar
+require_once __DIR__ . '/../includes/navbar.php';
 ?>
 
 <style>
@@ -455,7 +492,6 @@ require_once __DIR__ . '/../includes/navbar.php'; // ✅ must be logged-in navba
 
 <?php if (!empty($_GET['assigned']) && (int)$_GET['assigned'] === 1): ?>
 <script>
-  // popup message after redirect
   alert("Successfully assigned!");
 </script>
 <?php endif; ?>

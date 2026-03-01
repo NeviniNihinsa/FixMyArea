@@ -32,7 +32,7 @@ if ($role === 'worker')    $homeLink = BASE_URL . '/worker/home.php';
 if ($role === 'authority') $homeLink = BASE_URL . '/authority/home.php';
 if ($role === 'admin')     $homeLink = BASE_URL . '/admin/home.php';
 
-// menus by role (matches your low-fidelity nav items)
+// menus by role
 $menus = [
     'citizen' => [
         ['Home', 'citizen/home.php'],
@@ -64,17 +64,19 @@ $menus = [
     ],
 ];
 
-//Notifications: only citizen + worker
+// Notifications: citizen + worker + authority (admin optional; keep off unless you build it)
 $notifLink = '';
-if ($role === 'citizen') $notifLink = BASE_URL . '/citizen/notifications.php';
-if ($role === 'worker')  $notifLink = BASE_URL . '/worker/notifications.php';
+if ($role === 'citizen')   $notifLink = BASE_URL . '/citizen/notifications.php';
+if ($role === 'worker')    $notifLink = BASE_URL . '/worker/notifications.php';
+if ($role === 'authority') $notifLink = BASE_URL . '/authority/notifications.php'; // ✅ add
 
 // unread count (safe)
 $unreadCount = 0;
 if ($isLoggedIn && $notifLink !== '' && $userId > 0) {
     try {
         require_once __DIR__ . '/../config/db.php';
-        $st = $pdo->prepare("SELECT COUNT(*) FROM notification WHERE user_id=? AND is_read=0");
+        //  FIX table name: notifications (not notification)
+        $st = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0");
         $st->execute([$userId]);
         $unreadCount = (int)$st->fetchColumn();
     } catch (Throwable $e) {
@@ -92,7 +94,6 @@ if ($isLoggedIn && $notifLink !== '' && $userId > 0) {
            alt="FixMyArea"
            style="height:40px;width:auto;object-fit:contain;"
            onerror="this.style.display='none'">
-      
     </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
@@ -110,31 +111,31 @@ if ($isLoggedIn && $notifLink !== '' && $userId > 0) {
         <?php else: ?>
 
           <?php $i = 0; foreach (($menus[$role] ?? []) as [$label, $path]): ?>
-  <?php if ($i > 0): ?>
-    <li class="nav-item d-none d-lg-flex align-items-center px-1 text-muted">|</li>
-  <?php endif; ?>
-  <li class="nav-item">
-    <a class="nav-link <?= nav_active('/' . $path) ?>" href="<?= BASE_URL . '/' . $path ?>">
-      <?= htmlspecialchars($label) ?>
-    </a>
-  </li>
-<?php $i++; endforeach; ?>
+            <?php if ($i > 0): ?>
+              <li class="nav-item d-none d-lg-flex align-items-center px-1 text-muted">|</li>
+            <?php endif; ?>
+            <li class="nav-item">
+              <a class="nav-link <?= nav_active('/' . $path) ?>" href="<?= BASE_URL . '/' . $path ?>">
+                <?= htmlspecialchars($label) ?>
+              </a>
+            </li>
+          <?php $i++; endforeach; ?>
 
           <li class="nav-item d-none d-lg-flex align-items-center px-2 text-muted">|</li>
 
-          <!-- Bell only for citizen + worker -->
+          <!-- Bell for citizen + worker + authority -->
           <?php if ($notifLink !== ''): ?>
             <li class="nav-item d-flex align-items-center ms-lg-2 mt-2 mt-lg-0">
               <a class="nav-link position-relative px-2"
-           href="<?= $notifLink ?>" title="Notifications" aria-label="Notifications">
-            <i class="bi bi-bell fs-5"></i>
+                 href="<?= $notifLink ?>" title="Notifications" aria-label="Notifications">
+                <i class="bi bi-bell fs-5"></i>
 
-  <?php if ($unreadCount > 0): ?>
-    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-      <?= $unreadCount ?>
-    </span>
-  <?php endif; ?>
-</a>
+                <?php if ($unreadCount > 0): ?>
+                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    <?= $unreadCount ?>
+                  </span>
+                <?php endif; ?>
+              </a>
             </li>
 
             <li class="nav-item d-none d-lg-flex align-items-center px-2 text-muted">|</li>

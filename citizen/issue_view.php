@@ -28,9 +28,10 @@ $flash_success = $_SESSION['flash_success'] ?? '';
 $flash_error   = $_SESSION['flash_error'] ?? '';
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-/* Fetch issue */
+/* Fetch issue ( add is_common) */
 $st = $pdo->prepare("
     SELECT i.issue_id, i.reporter_user_id, i.area_id, i.category_id, i.title, i.description,
+           i.is_common,
            i.lat, i.lng, i.status, i.created_at,
            u.name AS reporter_name,
            a.area_name,
@@ -50,6 +51,8 @@ if (!$issue) {
     require_once __DIR__ . '/../includes/footer.php';
     exit;
 }
+
+$isCommon = ((int)($issue['is_common'] ?? 0) === 1);
 
 /* Photos */
 $st = $pdo->prepare("SELECT photo_type, file_path FROM issue_photos WHERE issue_id = ? ORDER BY photo_id ASC");
@@ -76,14 +79,19 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $timeline = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* Votes */
-$st = $pdo->prepare("SELECT COUNT(*) FROM votes WHERE issue_id = ? AND value = 1");
-$st->execute([$issueId]);
-$totalVotes = (int)$st->fetchColumn();
+/* Votes (only meaningful for common issues) */
+$totalVotes = 0;
+$alreadyVoted = false;
 
-$st = $pdo->prepare("SELECT 1 FROM votes WHERE issue_id = ? AND user_id = ? AND value = 1 LIMIT 1");
-$st->execute([$issueId, $userId]);
-$alreadyVoted = (bool)$st->fetchColumn();
+if ($isCommon) {
+    $st = $pdo->prepare("SELECT COUNT(*) FROM votes WHERE issue_id = ? AND value = 1");
+    $st->execute([$issueId]);
+    $totalVotes = (int)$st->fetchColumn();
+
+    $st = $pdo->prepare("SELECT 1 FROM votes WHERE issue_id = ? AND user_id = ? AND value = 1 LIMIT 1");
+    $st->execute([$issueId, $userId]);
+    $alreadyVoted = (bool)$st->fetchColumn();
+}
 
 /* Comments */
 $st = $pdo->prepare("
@@ -140,19 +148,27 @@ function stars(int $n): string {
             Reported by: <strong><?= htmlspecialchars($issue['reporter_name']) ?></strong> &nbsp; | &nbsp;
             Category: <strong><?= htmlspecialchars($issue['category_name']) ?></strong> &nbsp; | &nbsp;
             Status: <span class="badge bg-secondary"><?= htmlspecialchars($issue['status']) ?></span>
+            &nbsp; | &nbsp;
+
+            <!-- Common/Private badge -->
+            <span class="badge <?= $isCommon ? 'bg-success' : 'bg-secondary' ?>">
+              <?= $isCommon ? 'COMMON' : 'PRIVATE' ?>
+            </span>
           </div>
         </div>
 
-        <!-- Upvotes box (top right like low-fi) -->
-        <div class="text-center">
-          <form method="POST" action="<?= BASE_URL ?>/actions/vote_toggle.php">
-            <input type="hidden" name="issue_id" value="<?= $issueId ?>">
-            <button type="submit" class="btn btn-outline-brand btn-sm">
-              <?= $alreadyVoted ? '▲ Upvoted' : '▲ Upvote' ?>
-            </button>
-          </form>
-          <div class="mt-2 small text-muted"><?= $totalVotes ?> Upvotes</div>
-        </div>
+        <!-- Upvotes only if COMMON -->
+        <?php if ($isCommon): ?>
+          <div class="text-center">
+            <form method="POST" action="<?= BASE_URL ?>/actions/vote_toggle.php">
+              <input type="hidden" name="issue_id" value="<?= $issueId ?>">
+              <button type="submit" class="btn btn-outline-brand btn-sm">
+                <?= $alreadyVoted ? '▲ Upvoted' : '▲ Upvote' ?>
+              </button>
+            </form>
+            <div class="mt-2 small text-muted"><?= $totalVotes ?> Upvotes</div>
+          </div>
+        <?php endif; ?>
       </div>
 
       <!-- Issue Photos & Description -->

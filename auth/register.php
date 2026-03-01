@@ -62,9 +62,9 @@ $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")-
             </div>
 
             <div class="col-md-6">
-              <label class="form-label">Area *</label>
+              <label class="form-label"> Branch </label>
               <select name="area_id" class="form-select" required>
-                <option value="0">Select Area</option>
+                <option value="0">Select Branch </option>
                 <?php foreach ($areas as $a): ?>
                   <option value="<?= (int)$a['area_id'] ?>" <?= ((int)($old['area_id'] ?? 0) === (int)$a['area_id']) ? 'selected' : '' ?>>
                     <?= htmlspecialchars($a['area_name']) ?>
@@ -75,7 +75,7 @@ $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")-
             </div>
 
             <div class="col-12">
-              <label class="form-label">Address</label>
+              <label class="form-label"> Apartment Number </label>
               <input name="address" class="form-control" value="<?= htmlspecialchars($old['address'] ?? '') ?>">
               <div class="field-error"></div>
             </div>
