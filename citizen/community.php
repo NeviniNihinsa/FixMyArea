@@ -9,34 +9,40 @@ require_once __DIR__ . '/../includes/navbar.php';
 
 require_roles(['citizen']);
 
-$userId = (int)($_SESSION['user_id'] ?? 0);
+if (session_status() === PHP_SESSION_NONE) session_start();
 
-/** Citizen area (default filter) */
-$st = $pdo->prepare("SELECT area_id FROM users WHERE user_id=? LIMIT 1");
+$userId = (int)($_SESSION['user_id'] ?? 0);
+if ($userId <= 0) {
+  header("Location: " . BASE_URL . "/auth/login.php");
+  exit;
+}
+
+/** Citizen area (branch) - force filter */
+$st = $pdo->prepare("
+  SELECT u.area_id, a.area_name
+  FROM users u
+  LEFT JOIN areas a ON a.area_id = u.area_id
+  WHERE u.user_id = ?
+  LIMIT 1
+");
 $st->execute([$userId]);
 $me = $st->fetch(PDO::FETCH_ASSOC);
-$myAreaId = (int)($me['area_id'] ?? 0);
 
-/** Filters (low-fi: Area + Sort) */
-$areaId = (int)($_GET['area_id'] ?? 0);
-$sort   = trim($_GET['sort'] ?? 'recent'); // recent | upvotes | comments
+$myAreaId   = (int)($me['area_id'] ?? 0);
+$myAreaName = (string)($me['area_name'] ?? 'Not set');
 
-if ($areaId === 0 && $myAreaId > 0) $areaId = $myAreaId;
-
-$areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
+/** Sort only (Area filter removed) */
+$sort = trim($_GET['sort'] ?? 'recent'); // recent | upvotes | comments
 
 /** Sort SQL */
 $orderBy = "i.created_at DESC";
-if ($sort === 'upvotes')   $orderBy = "upvotes DESC, i.created_at DESC";
-if ($sort === 'comments')  $orderBy = "comments_count DESC, i.created_at DESC";
+if ($sort === 'upvotes')  $orderBy = "upvotes DESC, i.created_at DESC";
+if ($sort === 'comments') $orderBy = "comments_count DESC, i.created_at DESC";
 
-/** Feed query (issue cards) */
+/** Feed query (issues in citizen's branch only) */
 $params = [];
-$where = "";
-if ($areaId > 0) {
-  $where = "WHERE i.area_id = ?";
-  $params[] = $areaId;
-}
+$where = "WHERE i.area_id = ?";
+$params[] = $myAreaId;
 
 $sql = "
 SELECT
@@ -51,37 +57,27 @@ FROM issues i
 ORDER BY {$orderBy}
 LIMIT 30
 ";
+
 $st = $pdo->prepare($sql);
 $st->execute($params);
 $issues = $st->fetchAll(PDO::FETCH_ASSOC);
 
 function status_badge(string $status): string {
   $s = strtoupper($status);
-  // keep simple, bootstrap badge
   return '<span class="badge bg-secondary">'.htmlspecialchars($s).'</span>';
 }
 ?>
 
 <div class="container py-4">
 
-  <!-- HEADER ROW (matches low-fi: COMMUNITY + Area + Sort) -->
+  <!-- HEADER ROW (COMMUNITY + Sort only) -->
   <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3 mb-4">
-    <h2 class="fw-bold mb-0" style="letter-spacing:0.5px;">COMMUNITY</h2>
+    <div>
+      <h2 class="fw-bold mb-1" style="letter-spacing:0.5px;">COMMUNITY</h2>
+      <div class="text-muted small">Branch: <strong><?= htmlspecialchars($myAreaName) ?></strong></div>
+    </div>
 
     <form method="GET" class="d-flex flex-column flex-md-row align-items-md-center gap-3 ms-lg-auto">
-
-      <!-- Area -->
-      <div class="d-flex align-items-md-center gap-2">
-        <label class="text-muted mb-0">Area:</label>
-        <select name="area_id" class="form-select" style="min-width:240px;" onchange="this.form.submit()">
-          <option value="0">All areas</option>
-          <?php foreach ($areas as $a): ?>
-            <option value="<?= (int)$a['area_id'] ?>" <?= ((int)$a['area_id'] === $areaId) ? 'selected' : '' ?>>
-              <?= htmlspecialchars($a['area_name']) ?>
-            </option>
-          <?php endforeach; ?>
-        </select>
-      </div>
 
       <!-- Sort -->
       <div class="d-flex align-items-md-center gap-2">
@@ -100,9 +96,13 @@ function status_badge(string $status): string {
   <!-- LIST -->
   <div class="d-flex flex-column gap-4">
 
-    <?php if (empty($issues)): ?>
+    <?php if ($myAreaId <= 0): ?>
       <div class="card-dark p-4">
-        <div class="text-muted">No issues found for this area.</div>
+        <div class="text-danger">Your branch (area) is not set. Please update your profile.</div>
+      </div>
+    <?php elseif (empty($issues)): ?>
+      <div class="card-dark p-4">
+        <div class="text-muted">No issues found for your branch yet.</div>
       </div>
     <?php endif; ?>
 
@@ -149,14 +149,6 @@ function status_badge(string $status): string {
       </div>
     <?php endforeach; ?>
 
-  </div>
-
-  <!-- Bottom right button (low-fi) -->
-  <div class="d-flex justify-content-end mt-4">
-    <a class="btn btn-outline-light"
-       href="<?= BASE_URL ?>/citizen/leaderboard.php ?>">
-      View Leaderboard
-    </a>
   </div>
 
 </div>
