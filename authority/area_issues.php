@@ -7,11 +7,6 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['local authority', 'authority']);
 
-$page_title = 'Area Issues - FixMyArea';
-
-require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php'; 
-
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
@@ -24,16 +19,7 @@ function h(?string $s): string {
   return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 
-$st = $pdo->prepare("
-  SELECT COUNT(*)
-  FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'issues'
-    AND COLUMN_NAME = 'priority'
-");
-$st->execute();
-$hasPriority = ((int)$st->fetchColumn() > 0);
-
+/** Get authority branch/area */
 $st = $pdo->prepare("
   SELECT u.area_id, a.area_name
   FROM users u
@@ -48,47 +34,48 @@ $myAreaId   = (int)($me['area_id'] ?? 0);
 $myAreaName = (string)($me['area_name'] ?? '');
 
 if ($myAreaId <= 0) {
+  // Now it's safe to show HTML because export won't run when area is missing
+  $page_title = 'Area Issues - FixMyArea';
+  require_once __DIR__ . '/../includes/header.php';
+  require_once __DIR__ . '/../includes/navbar.php';
+
   echo '<div class="container py-4 app-container">';
-  echo '<div class="alert alert-warning">Your account is not assigned to an area yet. Please contact admin.</div>';
+  echo '<div class="alert alert-warning">Your account is not assigned to a branch/area yet. Please contact admin.</div>';
   echo '</div>';
+
   require_once __DIR__ . '/../includes/footer.php';
   exit;
 }
 
-
-// Categories
+/** Categories */
 $categories = $pdo->query("
   SELECT category_id, category_name
   FROM issue_categories
   ORDER BY category_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Field workers (same area)
+/** Field workers (same branch/area) */
 $st = $pdo->prepare("
   SELECT user_id, name
   FROM users
-  WHERE role IN ('field worker','worker')
-    AND status='active'
+  WHERE LOWER(role) IN ('field worker','worker')
+    AND LOWER(status) = 'active'
     AND area_id = ?
   ORDER BY name ASC
 ");
 $st->execute([$myAreaId]);
 $fieldWorkers = $st->fetchAll(PDO::FETCH_ASSOC);
 
+/** Filters */
 $q             = trim((string)($_GET['q'] ?? ''));
 $fieldWorkerId = (int)($_GET['field_worker_id'] ?? 0);
 $status        = trim((string)($_GET['status'] ?? ''));
-$priority      = trim((string)($_GET['priority'] ?? ''));
 $categoryId    = (int)($_GET['category_id'] ?? 0);
 $dateFrom      = trim((string)($_GET['date_from'] ?? ''));
 $dateTo        = trim((string)($_GET['date_to'] ?? ''));
 
 $allowedStatuses = ['','PENDING','ASSIGNED','IN_PROGRESS','COMPLETED','CLOSED','REOPENED','REJECTED'];
 if (!in_array($status, $allowedStatuses, true)) $status = '';
-
-$allowedPriority = ['','low','medium','high','LOW','MEDIUM','HIGH'];
-if (!in_array($priority, $allowedPriority, true)) $priority = '';
-$priority = strtolower($priority);
 
 $where  = ["i.area_id = ?"];
 $params = [$myAreaId];
@@ -123,15 +110,7 @@ if ($dateTo !== '') {
   $params[] = $dateTo;
 }
 
-
-if ($hasPriority && $priority !== '') {
-  $where[] = "LOWER(i.priority) = ?";
-  $params[] = $priority;
-}
-
 $whereSql = implode(" AND ", $where);
-
-$prioritySelect = $hasPriority ? "i.priority" : "NULL AS priority";
 
 $sqlBase = "
   SELECT
@@ -139,7 +118,6 @@ $sqlBase = "
     i.title,
     i.created_at,
     i.status,
-    {$prioritySelect},
     c.category_name,
     a.area_name,
     ru.email AS reporter_email,
@@ -158,6 +136,7 @@ $sqlBase = "
   WHERE {$whereSql}
 ";
 
+/** Export CSV (MUST be before header/navbar output) */
 $isExport = (isset($_GET['export']) && (string)$_GET['export'] === '1');
 
 if ($isExport) {
@@ -165,12 +144,17 @@ if ($isExport) {
   $st->execute($params);
   $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
+  // Safety: if any output buffer exists, clear it
+  if (ob_get_length()) { @ob_clean(); }
+
   header('Content-Type: text/csv; charset=utf-8');
   header('Content-Disposition: attachment; filename=area_issues_report.csv');
+  header('Pragma: no-cache');
+  header('Expires: 0');
 
   $out = fopen('php://output', 'w');
   fputcsv($out, [
-    'Issue ID','Issue Date','Title','Category','Area','Priority','Reported By','Field Worker','Status'
+    'Issue ID','Issue Date','Title','Category','Branch','Reported By','Field Worker','Status'
   ]);
 
   foreach ($rows as $r) {
@@ -180,7 +164,6 @@ if ($isExport) {
       $r['title'],
       $r['category_name'] ?? '',
       $r['area_name'] ?? '',
-      $r['priority'] ?? '',
       $r['reporter_email'] ?? '',
       $r['field_worker_name'] ?? 'Not Assigned',
       $r['status'] ?? '',
@@ -190,11 +173,12 @@ if ($isExport) {
   exit;
 }
 
+/** Load issues for screen */
 $st = $pdo->prepare($sqlBase . " ORDER BY i.created_at DESC, i.issue_id DESC LIMIT 200");
 $st->execute($params);
 $issues = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* helper: keep filters in links */
+/** Keep filters in links */
 function qs(array $overrides = []): string {
   $current = $_GET;
   foreach ($overrides as $k => $v) {
@@ -203,17 +187,19 @@ function qs(array $overrides = []): string {
   }
   return http_build_query($current);
 }
+
+/** NOW include header/navbar (after export is handled) */
+$page_title = 'Area Issues - FixMyArea';
+require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/navbar.php';
 ?>
 
 <style>
-  
   .area-readonly{
     background: rgba(0,0,0,0.18) !important;
     border: 1px solid var(--border) !important;
     color: var(--text) !important;
   }
-  .area-readonly::placeholder{ color: rgba(241,246,246,0.6) !important; }
-
   .area-wrap{
     white-space: normal !important;
     word-break: break-word !important;
@@ -226,7 +212,7 @@ function qs(array $overrides = []): string {
     <div>
       <h2 class="fw-bold mb-1">Area Issues</h2>
       <div class="text-muted small">
-        Showing issues for: <span class="fw-semibold"><?= h($myAreaName) ?></span>
+        Showing issues for (Branch): <span class="fw-semibold"><?= h($myAreaName) ?></span>
       </div>
     </div>
 
@@ -234,12 +220,6 @@ function qs(array $overrides = []): string {
       Generate Report
     </a>
   </div>
-
-  <?php if (!$hasPriority): ?>
-    <div class="alert alert-warning">
-      Priority column is not found in your <b>issues</b> table. Priority filter will be ignored until you add it.
-    </div>
-  <?php endif; ?>
 
   <div class="card-dark p-3 p-md-4 mb-3">
     <form method="GET" action="<?= BASE_URL ?>/authority/area_issues.php">
@@ -275,19 +255,6 @@ function qs(array $overrides = []): string {
         </div>
 
         <div class="col-6 col-md-4 col-lg-2">
-          <label class="form-label">Priority</label>
-          <select name="priority" class="form-select" <?= $hasPriority ? '' : 'disabled' ?>>
-            <option value="">All</option>
-            <option value="low" <?= ($priority === 'low') ? 'selected' : '' ?>>Low</option>
-            <option value="medium" <?= ($priority === 'medium') ? 'selected' : '' ?>>Medium</option>
-            <option value="high" <?= ($priority === 'high') ? 'selected' : '' ?>>High</option>
-          </select>
-          <?php if (!$hasPriority): ?>
-            <input type="hidden" name="priority" value="">
-          <?php endif; ?>
-        </div>
-
-        <div class="col-6 col-md-4 col-lg-2">
           <label class="form-label">Category</label>
           <select name="category_id" class="form-select">
             <option value="0">All</option>
@@ -299,15 +266,9 @@ function qs(array $overrides = []): string {
           </select>
         </div>
 
-  
-        <div class="col-12 col-md-6 col-lg-3">
-          <label class="form-label">Area</label>
-          <input
-            type="text"
-            class="form-control area-readonly area-wrap"
-            value="<?= h($myAreaName) ?>"
-            readonly
-          >
+        <div class="col-6 col-md-4 col-lg-3">
+          <label class="form-label">Branch</label>
+          <input type="text" class="form-control area-readonly area-wrap" value="<?= h($myAreaName) ?>" readonly>
         </div>
 
         <div class="col-6 col-md-4 col-lg-2">
@@ -335,35 +296,29 @@ function qs(array $overrides = []): string {
         <thead>
           <tr>
             <th style="width:90px;">Issue ID</th>
-            <th style="width:150px;">Issue Date</th>
-            <th style="min-width:220px;">Title</th>
-            <th style="width:140px;">Category</th>
-            <th style="min-width:180px;">Area</th>
-            <th style="width:90px;">Priority</th>
+            <th style="width:170px;">Issue Date</th>
+            <th style="min-width:240px;">Title</th>
+            <th style="width:160px;">Category</th>
+            <th style="min-width:180px;">Branch</th>
             <th style="min-width:220px;">Reported By</th>
             <th style="min-width:160px;">Field Worker</th>
-            <th style="width:120px;">Status</th>
+            <th style="width:130px;">Status</th>
             <th style="width:110px;">Action</th>
           </tr>
         </thead>
         <tbody>
         <?php if (empty($issues)): ?>
           <tr>
-            <td colspan="10" class="text-muted">No issues found.</td>
+            <td colspan="9" class="text-muted">No issues found.</td>
           </tr>
         <?php else: ?>
           <?php foreach ($issues as $it): ?>
-            <?php
-              $p = (string)($it['priority'] ?? '');
-              $priorityText = $p !== '' ? ucfirst(strtolower($p)) : '—';
-            ?>
             <tr>
               <td>#<?= (int)$it['issue_id'] ?></td>
               <td class="text-muted small"><?= h((string)$it['created_at']) ?></td>
               <td><?= h((string)$it['title']) ?></td>
               <td><?= h((string)($it['category_name'] ?? '')) ?></td>
               <td class="area-wrap"><?= h((string)($it['area_name'] ?? '')) ?></td>
-              <td><?= h($priorityText) ?></td>
               <td><?= h((string)($it['reporter_email'] ?? '')) ?></td>
               <td><?= h((string)($it['field_worker_name'] ?? 'Not Assigned')) ?></td>
               <td><?= h((string)($it['status'] ?? '')) ?></td>

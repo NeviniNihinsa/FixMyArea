@@ -37,7 +37,12 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold">Community</h2>
-        <div class="text-muted small">Sort: Recently Added</div>
+        <div class="d-flex align-items-center gap-3">
+    <div class="text-muted small">Sort: Recently Added</div>
+    <a href="<?= BASE_URL ?>/admin/leaderboard.php" class="btn btn-outline-brand btn-sm">
+         View Leaderboard
+    </a>
+</div>
     </div>
 
     <?php if(empty($issues)): ?>
@@ -82,4 +87,4 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
