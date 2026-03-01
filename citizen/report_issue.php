@@ -50,7 +50,7 @@ $old    = $_SESSION['old'] ?? [];
 unset($_SESSION['form_errors'], $_SESSION['old']);
 
 // defaults
-$oldIsCommon = (string)($old['is_common'] ?? '0'); // '0' personal, '1' common
+$oldIsCommon     = (string)($old['is_common'] ?? '0'); // '0' personal, '1' common
 $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
 ?>
 <div class="container py-4 app-container">
@@ -73,7 +73,7 @@ $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
           <!-- Title -->
           <div class="mb-3">
             <label class="form-label">Issue Title</label>
-            <input type="text" name="title" class="form-control"
+            <input type="text" name="title" id="issueTitle" class="form-control"
                    value="<?= htmlspecialchars($old['title'] ?? '') ?>"
                    maxlength="120" required>
             <div class="field-error"><?= htmlspecialchars($errors['title'] ?? '') ?></div>
@@ -113,12 +113,15 @@ $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
               <?php endforeach; ?>
             </select>
             <div class="field-error"><?= htmlspecialchars($errors['common_area_id'] ?? '') ?></div>
+
+            <!-- ✅ AI Duplicate Warning — injected here by JS -->
+            <div id="duplicate-warning"></div>
           </div>
 
           <!-- Category -->
           <div class="mb-3">
             <label class="form-label">Category</label>
-            <select name="category_id" class="form-select" required>
+            <select name="category_id" id="categorySelect" class="form-select" required>
               <option value="">Select category</option>
               <?php foreach ($categories as $c): ?>
                 <option value="<?= (int)$c['category_id'] ?>"
@@ -128,12 +131,14 @@ $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
               <?php endforeach; ?>
             </select>
             <div class="field-error"><?= htmlspecialchars($errors['category_id'] ?? '') ?></div>
+            <!-- ✅ AI Category Badge -->
+            <small id="ai-category-badge" class="mt-1 d-block" style="color: #a78bfa; min-height: 1.2em;"></small>
           </div>
 
           <!-- Description -->
           <div class="mb-3">
             <label class="form-label">Description</label>
-            <textarea name="description" class="form-control" rows="5" required><?= htmlspecialchars($old['description'] ?? '') ?></textarea>
+            <textarea name="description" id="issueDescription" class="form-control" rows="5" required><?= htmlspecialchars($old['description'] ?? '') ?></textarea>
             <div class="field-error"><?= htmlspecialchars($errors['description'] ?? '') ?></div>
           </div>
 
@@ -175,7 +180,7 @@ $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
             <div class="field-error"><?= htmlspecialchars($errors['photo'] ?? '') ?></div>
           </div>
 
-          <button class="btn btn-brand w-100 py-2" type="submit">Submit Issue</button>
+          <button class="btn btn-brand w-100 py-2" type="submit" id="submitBtn">Submit Issue</button>
         </form>
       </div>
     </div>
@@ -192,7 +197,7 @@ $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
           </div>
         </div>
         <div class="mt-3 small text-muted">
-          Tip: for now we use GPS coordinates. Later we’ll replace this box with Leaflet + OpenStreetMap.
+          Tip: for now we use GPS coordinates. Later we'll replace this box with Leaflet + OpenStreetMap.
         </div>
       </div>
     </div>
@@ -201,45 +206,196 @@ $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
 
 <script>
 (() => {
-  const form = document.getElementById('reportForm');
-  const btn = document.getElementById('btnLocation');
-
-  const commonWrap = document.getElementById('commonAreaWrap');
+  const form         = document.getElementById('reportForm');
+  const btn          = document.getElementById('btnLocation');
+  const commonWrap   = document.getElementById('commonAreaWrap');
   const commonSelect = document.getElementById('commonAreaSelect');
+  const titleEl      = document.getElementById('issueTitle');
+  const descEl       = document.getElementById('issueDescription');
+  const categoryEl   = document.getElementById('categorySelect');
+  const aiBadge      = document.getElementById('ai-category-badge');
+  const dupWarning   = document.getElementById('duplicate-warning');
 
+  const BASE = '<?= BASE_URL ?>';
+
+  // ─────────────────────────────────────────────
+  // Common / Personal toggle
+  // ─────────────────────────────────────────────
   const toggleCommon = () => {
-    const isCommon = form.querySelector('input[name="is_common"]:checked')?.value === "1";
+    const isCommon = form.querySelector('input[name="is_common"]:checked')?.value === '1';
     commonWrap.style.display = isCommon ? '' : 'none';
-    if (!isCommon) commonSelect.value = '';
+    if (!isCommon) {
+      commonSelect.value = '';
+      dupWarning.innerHTML = '';
+    }
   };
-
-  form.querySelectorAll('input[name="is_common"]').forEach(r => r.addEventListener('change', toggleCommon));
+  form.querySelectorAll('input[name="is_common"]').forEach(r => r.addEventListener('change', () => {
+    toggleCommon();
+    triggerDuplicateCheck(); // re-run when switching to/from common
+  }));
   toggleCommon();
 
+  // ─────────────────────────────────────────────
+  // 🤖 FEATURE 1 — AI Category Suggestion
+  // ─────────────────────────────────────────────
+  let catTimer = null;
+
+  const suggestCategory = () => {
+    const title = titleEl.value.trim();
+    const desc  = descEl.value.trim();
+
+    // Don't bother until there's enough text
+    if (title.length < 4 && desc.length < 8) return;
+
+    aiBadge.textContent = '🤖 Detecting category…';
+    aiBadge.style.color = '#a78bfa';
+
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('description', desc);
+
+    fetch(BASE + '/actions/ai_suggest_category.php', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.category_id) {
+          const prev = categoryEl.value;
+          categoryEl.value = data.category_id;
+
+          if (prev !== String(data.category_id)) {
+            // Briefly flash the select to show it changed
+            categoryEl.style.transition = 'box-shadow 0.3s';
+            categoryEl.style.boxShadow  = '0 0 0 3px rgba(167,139,250,0.4)';
+            setTimeout(() => categoryEl.style.boxShadow = '', 1500);
+          }
+
+          aiBadge.textContent = `🤖 AI suggested: ${data.category_name} — change if incorrect`;
+        } else {
+          aiBadge.textContent = '';
+        }
+      })
+      .catch(() => { aiBadge.textContent = ''; });
+  };
+
+  const onCatInput = () => {
+    clearTimeout(catTimer);
+    catTimer = setTimeout(suggestCategory, 900); // 900ms debounce
+  };
+
+  titleEl.addEventListener('input', onCatInput);
+  descEl.addEventListener('input', onCatInput);
+
+  // ─────────────────────────────────────────────
+  // 🤖 FEATURE 2 — Duplicate Issue Detection
+  // ─────────────────────────────────────────────
+  let dupTimer = null;
+
+  const checkDuplicate = () => {
+    const isCommon = form.querySelector('input[name="is_common"]:checked')?.value;
+    if (isCommon !== '1') return; // only for common issues
+
+    const title       = titleEl.value.trim();
+    const desc        = descEl.value.trim();
+    const commonAreaId = commonSelect.value;
+
+    if (title.length < 4 || !commonAreaId) {
+      dupWarning.innerHTML = '';
+      return;
+    }
+
+    // Show a subtle loading state
+    dupWarning.innerHTML = '<div class="text-muted small mt-2">🔍 Checking for similar issues…</div>';
+
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('description', desc);
+    fd.append('common_area_id', commonAreaId);
+
+    fetch(BASE + '/actions/ai_check_duplicate.php', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.duplicate && data.matches?.length) {
+          const rows = data.matches.map(m => {
+            const statusColors = {
+              PENDING: 'bg-secondary',
+              ASSIGNED: 'bg-info text-dark',
+              IN_PROGRESS: 'bg-warning text-dark',
+            };
+            const badgeClass = statusColors[m.status] ?? 'bg-secondary';
+            return `
+              <li class="d-flex align-items-start gap-2 mb-1">
+                <span class="badge ${badgeClass} mt-1">${m.status.replace('_',' ')}</span>
+                <span>
+                  <strong>#${m.issue_id}</strong> — ${escHtml(m.title)}
+                  <span class="text-muted small ms-1">(${m.score}% match)</span>
+                </span>
+              </li>`;
+          }).join('');
+
+          dupWarning.innerHTML = `
+            <div class="alert alert-warning mt-2 mb-0 py-2 px-3" style="border-left: 4px solid #f59e0b;">
+              <div class="fw-semibold mb-1">⚠️ Similar issue(s) already reported in this area:</div>
+              <ul class="mb-2 ps-0" style="list-style:none;">${rows}</ul>
+              <small class="text-muted">You can still submit if your issue is different from the above.</small>
+            </div>`;
+        } else {
+          dupWarning.innerHTML = `
+            <div class="text-success small mt-2">✅ No similar issues found — looks unique!</div>`;
+
+          // Auto-clear the green message after 3s
+          setTimeout(() => { dupWarning.innerHTML = ''; }, 3000);
+        }
+      })
+      .catch(() => { dupWarning.innerHTML = ''; });
+  };
+
+  const triggerDuplicateCheck = () => {
+    clearTimeout(dupTimer);
+    dupTimer = setTimeout(checkDuplicate, 800);
+  };
+
+  titleEl.addEventListener('input', triggerDuplicateCheck);
+  descEl.addEventListener('input', triggerDuplicateCheck);
+  commonSelect.addEventListener('change', triggerDuplicateCheck);
+
+  // ─────────────────────────────────────────────
+  // Utility: HTML escape
+  // ─────────────────────────────────────────────
+  const escHtml = (str) => {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  };
+
+  // ─────────────────────────────────────────────
+  // GPS Location button
+  // ─────────────────────────────────────────────
   btn.addEventListener('click', () => {
     if (!navigator.geolocation) {
-      alert("Geolocation not supported.");
+      alert('Geolocation not supported.');
       return;
     }
     btn.disabled = true;
-    btn.textContent = "Getting location...";
+    btn.textContent = 'Getting location…';
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         form.lat.value = pos.coords.latitude.toFixed(7);
         form.lng.value = pos.coords.longitude.toFixed(7);
         btn.disabled = false;
-        btn.textContent = "Use My Location";
+        btn.textContent = 'Use My Location';
       },
       () => {
-        alert("Location permission denied. Enter lat/lng manually.");
+        alert('Location permission denied. Enter lat/lng manually.');
         btn.disabled = false;
-        btn.textContent = "Use My Location";
+        btn.textContent = 'Use My Location';
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
   });
 
+  // ─────────────────────────────────────────────
+  // Client-side form validation
+  // ─────────────────────────────────────────────
   form.addEventListener('submit', (e) => {
     let ok = true;
     form.querySelectorAll('.field-error').forEach(el => el.textContent = '');
@@ -252,26 +408,27 @@ $oldCommonAreaId = (string)($old['common_area_id'] ?? '');
     const lng   = form.lng.value.trim();
     const photo = form.photo.files[0];
 
-    const isCommon = form.querySelector('input[name="is_common"]:checked')?.value || "0";
+    const isCommon    = form.querySelector('input[name="is_common"]:checked')?.value || '0';
     const commonAreaId = commonSelect.value;
 
     const setErr = (name, msg) => {
       const el = form.querySelector(`[name="${name}"]`);
-      if (el && el.nextElementSibling) el.nextElementSibling.textContent = msg;
+      if (el && el.nextElementSibling?.classList.contains('field-error')) {
+        el.nextElementSibling.textContent = msg;
+      }
     };
 
-    if (!title) { setErr('title', 'Title is required.'); ok = false; }
-    if (!cat)   { setErr('category_id', 'Category is required.'); ok = false; }
-    if (!desc)  { setErr('description', 'Description is required.'); ok = false; }
-    if (!area || area === "0") { setErr('area_id', 'Your area is not set. Update profile area first.'); ok = false; }
-
-    if (isCommon === "1" && !commonAreaId) { setErr('common_area_id', 'Common area is required for common issues.'); ok = false; }
+    if (!title)                       { setErr('title', 'Title is required.'); ok = false; }
+    if (!cat)                         { setErr('category_id', 'Category is required.'); ok = false; }
+    if (!desc)                        { setErr('description', 'Description is required.'); ok = false; }
+    if (!area || area === '0')        { setErr('area_id', 'Your area is not set. Update profile area first.'); ok = false; }
+    if (isCommon === '1' && !commonAreaId) { setErr('common_area_id', 'Common area is required for common issues.'); ok = false; }
 
     const numLat = Number(lat), numLng = Number(lng);
-    if (!lat || Number.isNaN(numLat) || numLat < -90 || numLat > 90) { setErr('lat', 'Enter valid latitude (-90 to 90).'); ok = false; }
+    if (!lat || Number.isNaN(numLat) || numLat < -90  || numLat > 90)  { setErr('lat', 'Enter valid latitude (-90 to 90).'); ok = false; }
     if (!lng || Number.isNaN(numLng) || numLng < -180 || numLng > 180) { setErr('lng', 'Enter valid longitude (-180 to 180).'); ok = false; }
 
-    if (!photo) { setErr('photo', 'Photo is required.'); ok = false; }
+    if (!photo)                            { setErr('photo', 'Photo is required.'); ok = false; }
     else if (photo.size > 5 * 1024 * 1024) { setErr('photo', 'Max file size is 5MB.'); ok = false; }
 
     if (!ok) e.preventDefault();
