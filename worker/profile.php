@@ -94,7 +94,7 @@ foreach ($areas as $a) {
         <!-- LEFT details -->
         <div class="col-12 col-lg-6">
           <h2 class="fw-bold mb-2">Profile</h2>
-          <div class="text-muted mb-4">Role: <span class="fw-semibold">Field Worker</span></div>
+          <div class="text-muted mb-4">Role: <span class="fw-semibold">Technician</span></div>
 
           <form method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" novalidate>
             <input type="hidden" name="role_redirect" value="worker">
@@ -109,14 +109,14 @@ foreach ($areas as $a) {
 
             <!-- Worker ID (display only) -->
             <div class="mb-3">
-              <div class="profile-label mb-1">Field Worker ID</div>
+              <div class="profile-label mb-1">Technician ID</div>
               <input type="text" class="form-control readonly-box" value="<?= 'WORK' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT) ?>" readonly>
               <div class="text-muted small mt-1">This is a display ID (not stored separately).</div>
             </div>
 
             <!-- Assigned Area (settable from dropdown) -->
             <div class="mb-3">
-              <div class="profile-label mb-1">Assigned Area</div>
+              <div class="profile-label mb-1">Assigned Branch</div>
               <select name="area_id" class="form-select" required>
                 <option value="0">Select area</option>
                 <?php foreach ($areas as $a): ?>

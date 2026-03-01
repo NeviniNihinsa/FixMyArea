@@ -14,6 +14,22 @@ require_once __DIR__ . '/../includes/navbar.php';
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
 
+/** helper */
+function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+function niceStatus(string $s): string { return strtoupper(trim($s)); }
+
+/** safe: check if a column exists (so we can join authority only if your DB has it) */
+function columnExists(PDO $pdo, string $table, string $column): bool {
+  try {
+    $st = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+    $st->execute([$column]);
+    return (bool)$st->fetch(PDO::FETCH_ASSOC);
+  } catch (Throwable $e) {
+    return false;
+  }
+}
+
+/** get worker details + area */
 $st = $pdo->prepare("
   SELECT u.user_id, u.name, u.email, u.area_id, a.area_name
   FROM users u
@@ -27,6 +43,7 @@ $me = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 $areaName = (string)($me['area_name'] ?? 'Not set');
 $areaId   = (int)($me['area_id'] ?? 0);
 
+/** stats */
 $st = $pdo->prepare("SELECT COUNT(*) FROM assignments WHERE field_worker_id=?");
 $st->execute([$userId]);
 $totalAssigned = (int)$st->fetchColumn();
@@ -53,31 +70,59 @@ $st = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_r
 $st->execute([$userId]);
 $newNotifs = (int)$st->fetchColumn();
 
-$st = $pdo->prepare("
+/**
+ * Recently Assigned / Updated Issues
+ * New LFD needs Authority Name column.
+ *
+ * We try to get authority name from issues table if you have a column for it.
+ * Supported columns (we detect automatically):
+ * - issues.authority_user_id
+ * - issues.local_authority_user_id
+ * - issues.assigned_authority_user_id
+ *
+ * If none exist -> fallback shows "Municipal Council <Area>" (safe + matches LFD style)
+ */
+$authorityCol = null;
+$possible = ['authority_user_id', 'local_authority_user_id', 'assigned_authority_user_id'];
+foreach ($possible as $col) {
+  if (columnExists($pdo, 'issues', $col)) { $authorityCol = $col; break; }
+}
+
+$authoritySelect = "CONCAT('Municipal Council ', COALESCE(a.area_name,'—')) AS authority_name";
+$authorityJoin   = "";
+if ($authorityCol !== null) {
+  $authoritySelect = "COALESCE(au.name, CONCAT('Municipal Council ', COALESCE(a.area_name,'—'))) AS authority_name";
+  $authorityJoin = "LEFT JOIN users au ON au.user_id = i.`$authorityCol`";
+}
+
+$sqlRecent = "
   SELECT
     i.issue_id, i.title, i.status, i.created_at,
     c.category_name,
     a.area_name,
-    u.email AS reporter_email
+    u.email AS reporter_email,
+    $authoritySelect
   FROM assignments x
   JOIN issues i ON i.issue_id = x.issue_id
   LEFT JOIN issue_categories c ON c.category_id = i.category_id
   LEFT JOIN areas a ON a.area_id = i.area_id
   LEFT JOIN users u ON u.user_id = i.reporter_user_id
+  $authorityJoin
   WHERE x.field_worker_id = ?
   ORDER BY i.created_at DESC, i.issue_id DESC
   LIMIT 6
-");
+";
+$st = $pdo->prepare($sqlRecent);
 $st->execute([$userId]);
 $recent = $st->fetchAll(PDO::FETCH_ASSOC);
 
-function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
-function niceStatus(string $s): string { return strtoupper(trim($s)); }
+$techName = (string)($_SESSION['name'] ?? 'Field');
 ?>
 
 <div class="container py-4 app-container">
 
-  <h1 class="fw-bold mb-4">Welcome <?= h($_SESSION['name'] ?? 'Worker') ?></h1>
+  <!-- ✅ LFD text change -->
+  <h1 class="fw-bold mb-4">Welcome Field <?= h($techName) ?></h1>
 
   <div class="row g-4">
     <!-- LEFT: Map Placeholder -->
@@ -144,15 +189,22 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
               <th>Issue ID</th>
               <th>Title</th>
               <th>Category</th>
-              <th>Area</th>
+
+              <!-- ✅ LFD rename -->
+              <th> branch</th>
+
               <th>Reported By</th>
+
+              <!-- ✅ LFD new column -->
+              <th>Authority Name</th>
+
               <th>Status</th>
               <th style="width:120px;">Action</th>
             </tr>
           </thead>
           <tbody>
           <?php if (!$recent): ?>
-            <tr><td colspan="7" class="text-muted">No assigned issues yet.</td></tr>
+            <tr><td colspan="8" class="text-muted">No assigned issues yet.</td></tr>
           <?php else: ?>
             <?php foreach ($recent as $r): ?>
               <tr>
@@ -161,6 +213,7 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
                 <td><?= h($r['category_name'] ?? '—') ?></td>
                 <td><?= h($r['area_name'] ?? '—') ?></td>
                 <td><?= h($r['reporter_email'] ?? '—') ?></td>
+                <td><?= h($r['authority_name'] ?? '—') ?></td>
                 <td><span class="badge bg-secondary"><?= h(niceStatus((string)$r['status'])) ?></span></td>
                 <td>
                   <a class="btn btn-sm btn-outline-brand"
@@ -184,10 +237,13 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
                 <div class="fw-semibold">#<?= (int)$r['issue_id'] ?> — <?= h($r['title']) ?></div>
                 <span class="badge bg-secondary"><?= h(niceStatus((string)$r['status'])) ?></span>
               </div>
+
               <div class="text-muted small mt-1">
                 <?= h($r['category_name'] ?? '—') ?> • <?= h($r['area_name'] ?? '—') ?>
               </div>
               <div class="text-muted small">Reported by: <?= h($r['reporter_email'] ?? '—') ?></div>
+              <div class="text-muted small">Authority: <?= h($r['authority_name'] ?? '—') ?></div>
+
               <div class="mt-2">
                 <a class="btn btn-sm btn-outline-brand"
                    href="<?= BASE_URL ?>/worker/issue_view.php?issue_id=<?= (int)$r['issue_id'] ?>">View</a>

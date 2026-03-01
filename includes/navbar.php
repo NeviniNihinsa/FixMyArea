@@ -45,6 +45,7 @@ $menus = [
         ['Home', 'worker/home.php'],
         ['Assigned Issues', 'worker/assigned_issues.php'],
         ['Community', 'worker/community.php'],
+        ['Leaderboard', 'worker/leaderboard.php'],
         ['Profile', 'worker/profile.php'],
     ],
     'authority' => [
