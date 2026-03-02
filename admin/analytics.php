@@ -176,48 +176,205 @@ $caLabels       = array_map(fn($r) => (string)$r['label'], $byCommonArea);
 $caData         = array_map(fn($r) => (int)$r['c'], $byCommonArea);
 
 /** CSV Download */
+// $download = (string)($_GET['download'] ?? '');
+// if ($download === 'csv') {
+//   header('Content-Type: text/csv; charset=utf-8');
+//   header('Content-Disposition: attachment; filename="analytics_report.csv"');
+
+//   $out = fopen('php://output', 'w');
+
+//   fputcsv($out, ['Fixly Analytics Report']);
+//   fputcsv($out, ['Branch', $selectedAreaName]);  // fixed: was raw ID
+//   fputcsv($out, ['Location Type', $locType !== '' ? ucfirst($locType) : 'All']);
+//   fputcsv($out, ['From', $fromDate !== '' ? $fromDate : 'Any']);
+//   fputcsv($out, ['To',   $toDate   !== '' ? $toDate   : 'Any']);
+//   fputcsv($out, []);
+//   fputcsv($out, ['Total Issues',              $totalIssues]);
+//   fputcsv($out, ['Resolved Issues',           $resolvedIssues]);
+//   fputcsv($out, ['Pending',                   $pendingCount]);
+//   fputcsv($out, ['Assigned',                  $assignedCount]);
+//   fputcsv($out, ['In Progress',               $inProgressCount]);
+//   fputcsv($out, ['Reopened',                  $reopenedCount]);
+//   fputcsv($out, ['Avg Resolution Time (days)', $avgResolution]);
+//   fputcsv($out, []);
+
+//   fputcsv($out, ['Location Split']);
+//   fputcsv($out, ['Common Area Issues', $commonCount]);
+//   fputcsv($out, ['Tenant Unit Issues', $unitCount]);
+//   fputcsv($out, []);
+
+//   fputcsv($out, ['Issue Distribution by Category']);
+//   fputcsv($out, ['Category', 'Count']);
+//   foreach ($byCategory as $row) { fputcsv($out, [$row['label'], $row['c']]); }
+//   fputcsv($out, []);
+
+//   fputcsv($out, ['Issues by Common Area']);
+//   fputcsv($out, ['Common Area', 'Count']);
+//   foreach ($byCommonArea as $row) { fputcsv($out, [$row['label'], $row['c']]); }
+//   fputcsv($out, []);
+
+//   fputcsv($out, ['Resolution Time Analysis']);
+//   fputcsv($out, ['Range', 'Count']);
+//   foreach ($buckets as $k => $v) { fputcsv($out, [$k, $v]); }
+
+//   fclose($out);
+//   exit;
+// }
+
+/** PDF Download */
 $download = (string)($_GET['download'] ?? '');
-if ($download === 'csv') {
-  header('Content-Type: text/csv; charset=utf-8');
-  header('Content-Disposition: attachment; filename="analytics_report.csv"');
 
-  $out = fopen('php://output', 'w');
+if ($download === 'pdf') {
+  
+  // Build a nice filter label
+  $filterLabel = [];
+  $filterLabel[] = "Branch: " . ($selectedAreaName ?? 'All');
+  $filterLabel[] = "Location: " . ($locType !== '' ? ucfirst($locType) : 'All');
+  $filterLabel[] = "From: " . ($fromDate !== '' ? $fromDate : 'Any');
+  $filterLabel[] = "To: " . ($toDate !== '' ? $toDate : 'Any');
 
-  fputcsv($out, ['Fixly Analytics Report']);
-  fputcsv($out, ['Branch', $selectedAreaName]);  // fixed: was raw ID
-  fputcsv($out, ['Location Type', $locType !== '' ? ucfirst($locType) : 'All']);
-  fputcsv($out, ['From', $fromDate !== '' ? $fromDate : 'Any']);
-  fputcsv($out, ['To',   $toDate   !== '' ? $toDate   : 'Any']);
-  fputcsv($out, []);
-  fputcsv($out, ['Total Issues',              $totalIssues]);
-  fputcsv($out, ['Resolved Issues',           $resolvedIssues]);
-  fputcsv($out, ['Pending',                   $pendingCount]);
-  fputcsv($out, ['Assigned',                  $assignedCount]);
-  fputcsv($out, ['In Progress',               $inProgressCount]);
-  fputcsv($out, ['Reopened',                  $reopenedCount]);
-  fputcsv($out, ['Avg Resolution Time (days)', $avgResolution]);
-  fputcsv($out, []);
+  ?>
+  <!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <title>FixMyArea Analytics Report</title>
+    <style>
+      /* Print-friendly styles */
+      body { font-family: Arial, sans-serif; color:#111; margin: 24px; }
+      h1 { margin: 0 0 6px; font-size: 20px; }
+      .meta { margin: 0 0 16px; color:#444; font-size: 12px; }
+      .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 18px; }
+      .box { border: 1px solid #ddd; padding: 10px; border-radius: 8px; }
+      .label { font-size: 11px; color:#666; }
+      .value { font-size: 16px; font-weight: 700; margin-top: 4px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+      th { background: #f2f2f2; text-align: left; }
+      .section { margin-top: 18px; }
+      .note { font-size: 12px; color: #666; margin-top: 10px; }
 
-  fputcsv($out, ['Location Split']);
-  fputcsv($out, ['Common Area Issues', $commonCount]);
-  fputcsv($out, ['Tenant Unit Issues', $unitCount]);
-  fputcsv($out, []);
+      /* Hide any print button on paper */
+      @media print {
+        .no-print { display: none !important; }
+        body { margin: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="no-print" style="margin-bottom:12px;">
+      <button onclick="window.print()">Print / Save as PDF</button>
+    </div>
 
-  fputcsv($out, ['Issue Distribution by Category']);
-  fputcsv($out, ['Category', 'Count']);
-  foreach ($byCategory as $row) { fputcsv($out, [$row['label'], $row['c']]); }
-  fputcsv($out, []);
+    <h1>FixMyArea Analytics Report</h1>
+    <div class="meta">
+      Generated: <?= date('Y-m-d H:i') ?><br>
+      Filters: <?= h(implode(" | ", $filterLabel)) ?>
+    </div>
 
-  fputcsv($out, ['Issues by Common Area']);
-  fputcsv($out, ['Common Area', 'Count']);
-  foreach ($byCommonArea as $row) { fputcsv($out, [$row['label'], $row['c']]); }
-  fputcsv($out, []);
+    <div class="kpi">
+      <div class="box"><div class="label">Total Issues</div><div class="value"><?= (int)$totalIssues ?></div></div>
+      <div class="box"><div class="label">Resolved</div><div class="value"><?= (int)$resolvedIssues ?></div></div>
+      <div class="box"><div class="label">Avg Resolution Time</div><div class="value"><?= h((string)$avgResolution) ?> days</div></div>
+      <div class="box"><div class="label">Reopened</div><div class="value"><?= (int)$reopenedCount ?></div></div>
+    </div>
 
-  fputcsv($out, ['Resolution Time Analysis']);
-  fputcsv($out, ['Range', 'Count']);
-  foreach ($buckets as $k => $v) { fputcsv($out, [$k, $v]); }
+    <div class="section">
+      <h3>Active Pipeline</h3>
+      <table>
+        <thead><tr><th>Status</th><th>Count</th></tr></thead>
+        <tbody>
+          <tr><td>Pending</td><td><?= (int)$pendingCount ?></td></tr>
+          <tr><td>Assigned</td><td><?= (int)$assignedCount ?></td></tr>
+          <tr><td>In Progress</td><td><?= (int)$inProgressCount ?></td></tr>
+        </tbody>
+      </table>
+    </div>
 
-  fclose($out);
+    <div class="section">
+      <h3>Issue Distribution by Category</h3>
+      <table>
+        <thead><tr><th>Category</th><th>Count</th></tr></thead>
+        <tbody>
+        <?php if (empty($byCategory)): ?>
+          <tr><td colspan="2">No data for this filter.</td></tr>
+        <?php else: ?>
+          <?php foreach ($byCategory as $row): ?>
+            <tr>
+              <td><?= h($row['label'] ?? '') ?></td>
+              <td><?= (int)($row['c'] ?? 0) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h3>Resolution Time Analysis</h3>
+      <table>
+        <thead><tr><th>Range</th><th>Count</th></tr></thead>
+        <tbody>
+          <?php foreach ($buckets as $range => $count): ?>
+            <tr><td><?= h($range) ?></td><td><?= (int)$count ?></td></tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h3>Location Split</h3>
+      <table>
+        <thead><tr><th>Type</th><th>Count</th></tr></thead>
+        <tbody>
+          <tr><td>Common Area</td><td><?= (int)$commonCount ?></td></tr>
+          <tr><td>Tenant Unit</td><td><?= (int)$unitCount ?></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h3>Issues by Common Area</h3>
+      <table>
+        <thead><tr><th>Common Area</th><th>Count</th></tr></thead>
+        <tbody>
+        <?php if (empty($byCommonArea)): ?>
+          <tr><td colspan="2">No common area issues for this filter.</td></tr>
+        <?php else: ?>
+          <?php foreach ($byCommonArea as $row): ?>
+            <tr>
+              <td><?= h($row['label'] ?? '') ?></td>
+              <td><?= (int)($row['c'] ?? 0) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      To download: In the print window choose “Save as PDF”.
+    </div>
+    
+    <script>
+      window.addEventListener('load', () => {
+        // open print dialog
+        window.print();
+      });
+
+      // after print dialog closes, close the tab so user returns to Analytics
+      window.addEventListener('afterprint', () => {
+        window.close();
+      });
+
+      // fallback for browsers that don't fire afterprint reliably
+      setTimeout(() => {
+        try { window.close(); } catch (e) {}
+      }, 4000);
+    </script>
+  </body>
+  </html>
+  <?php
   exit;
 }
 
@@ -397,7 +554,14 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
         $qs['download'] = 'csv';
         $downloadUrl = BASE_URL . '/admin/analytics.php?' . http_build_query($qs);
       ?>
-      <a class="btn btn-outline-brand" href="<?= h($downloadUrl) ?>">Download Report (CSV)</a>
+      <?php
+        $qs = $_GET;
+        $qs['download'] = 'pdf';
+        $downloadUrl = 'analytics.php?' . http_build_query($qs); // ✅ relative, always works
+      ?>
+      <a class="btn btn-outline-brand" href="<?= h($downloadUrl) ?>" target="_blank" rel="noopener">
+        Download Report
+      </a>
     </div>
   </div>
 
