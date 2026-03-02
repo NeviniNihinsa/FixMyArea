@@ -37,16 +37,20 @@ $unreadCount = (int)$st->fetchColumn();
 
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
-function badgeClass(string $type): string {
+function badgeStyle(string $type): string {
     $t = strtoupper(trim($type));
     return match ($t) {
-        'NEW_ISSUE' => 'bg-info',
-        'STATUS' => 'bg-warning text-dark',
-        'ASSIGNMENT' => 'bg-primary',
-        'COMMENT' => 'bg-secondary',
-        'FEEDBACK_REQUEST' => 'bg-success',
-        default => 'bg-dark'
+        'NEW_ISSUE'        => 'background:#ff914c;color:#1a1005;',
+        'STATUS'           => 'background:#ffad52;color:#1a1005;',
+        'ASSIGNMENT'       => 'background:#ffcc56;color:#1a1005;',
+        'COMMENT'          => 'background:#d97706;color:#fff;',
+        'FEEDBACK_REQUEST' => 'background:#92400e;color:#fff;',
+        default            => 'background:#a07840;color:#fff;'
     };
+}
+
+function formatType(string $type): string {
+    return ucwords(strtolower(str_replace('_', ' ', $type)));
 }
 ?>
 
@@ -103,8 +107,8 @@ function badgeClass(string $type): string {
             ?>
             <tr class="<?= $isRead ? '' : 'fw-semibold' ?>">
               <td>
-                <span class="badge <?= badgeClass((string)$n['notification_type']) ?>">
-                  <?= h((string)$n['notification_type']) ?>
+                <span class="badge" style="<?= badgeStyle((string)$n['notification_type']) ?>">
+                 <?= h(formatType((string)$n['notification_type'])) ?>
                 </span>
                 <?php if (!$isRead): ?>
                   <span class="badge bg-danger ms-2">NEW</span>
@@ -128,7 +132,7 @@ function badgeClass(string $type): string {
                     <form method="POST" action="<?= BASE_URL ?>/actions/notification_mark_read.php" class="m-0">
                       <input type="hidden" name="mode" value="one">
                       <input type="hidden" name="notification_id" value="<?= (int)$n['notification_id'] ?>">
-                      <button class="btn btn-sm btn-outline-light" type="submit">Mark read</button>
+                      <button class="btn btn-sm" style="border:1.5px solid var(--accent-600);color:var(--accent-600);" type="submit">Mark read</button>
                     </form>
                   <?php else: ?>
                     <span class="small text-muted align-self-center">Read</span>
@@ -178,7 +182,7 @@ function badgeClass(string $type): string {
                   <form method="POST" action="<?= BASE_URL ?>/actions/notification_mark_read.php" class="m-0">
                     <input type="hidden" name="mode" value="one">
                     <input type="hidden" name="notification_id" value="<?= (int)$n['notification_id'] ?>">
-                    <button class="btn btn-sm btn-outline-light" type="submit">Mark read</button>
+                    <button class="btn btn-sm" style="border:1.5px solid var(--accent-600);color:var(--accent-600);" type="submit">Mark read</button>
                   </form>
                 <?php else: ?>
                   <span class="small text-muted align-self-center">Read</span>
