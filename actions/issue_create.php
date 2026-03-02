@@ -49,13 +49,19 @@ if ($isCommon === 1 && $commonAreaId <= 0) {
   $errors['common_area_id'] = "Common area is required for common issues.";
 }
 
-if ($latRaw === '' || !is_numeric($latRaw)) $errors['lat'] = "Latitude must be a number.";
-if ($lngRaw === '' || !is_numeric($lngRaw)) $errors['lng'] = "Longitude must be a number.";
+if ($latRaw === '' || !is_numeric($latRaw)) $errors['lat'] = 'Location is required. Please click "Use My Location".';
+if ($lngRaw === '' || !is_numeric($lngRaw)) $errors['lng'] = 'Location is required. Please click "Use My Location".';
 
 $lat = (float)$latRaw;
 $lng = (float)$lngRaw;
-if (is_numeric($latRaw) && ($lat < -90 || $lat > 90)) $errors['lat'] = "Latitude must be between -90 and 90.";
-if (is_numeric($lngRaw) && ($lng < -180 || $lng > 180)) $errors['lng'] = "Longitude must be between -180 and 180.";
+if (is_numeric($latRaw) && ($lat < -90 || $lat > 90)) $errors['lat'] = 'Location is required. Please click "Use My Location".';
+if (is_numeric($lngRaw) && ($lng < -180 || $lng > 180)) $errors['lng'] = 'Location is required. Please click "Use My Location".';
+
+// must be detected (not 0)
+if (!$errors && ($lat == 0.0 || $lng == 0.0)) {
+  $errors['lat'] = 'Location is required. Please click "Use My Location".';
+  $errors['lng'] = 'Location is required. Please click "Use My Location".';
+}
 
 // photo validation
 if (empty($_FILES['photo']) || ($_FILES['photo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -144,7 +150,7 @@ try {
 
   $issueId = (int)$pdo->lastInsertId();
 
-  // issue_photos (your enum values are REPORT / PROOF_BEFORE / PROOF_AFTER)
+  // issue_photos
   $stmt = $pdo->prepare("
     INSERT INTO issue_photos (issue_id, photo_type, file_path, uploaded_by_user_id, created_at)
     VALUES (?, 'REPORT', ?, ?, NOW())
