@@ -240,7 +240,7 @@ function stars(?int $val): string {
             </select>
 
             <input type="file" name="photo" class="form-control" accept="image/jpeg,image/png,image/webp" required>
-            <button class="btn btn-outline-brand" type="submit">Upload Proof</button>
+            <button class="btn btn-outline-light" type="submit">Upload Proof</button>
           </form>
         </div>
 
