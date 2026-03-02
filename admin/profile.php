@@ -34,8 +34,10 @@ if (!$me) {
   exit;
 }
 
+/** Areas list */
 $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
+/** Flash + validation errors */
 $flash  = $_SESSION['flash'] ?? null;
 $errors = $_SESSION['form_errors'] ?? [];
 $old    = $_SESSION['old'] ?? [];
@@ -43,6 +45,7 @@ unset($_SESSION['flash'], $_SESSION['form_errors'], $_SESSION['old']);
 
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
+/** Resolve old values (if validation failed) */
 $name    = (string)($old['name'] ?? $me['name'] ?? '');
 $email   = (string)($old['email'] ?? $me['email'] ?? '');
 $phone   = (string)($old['phone'] ?? $me['phone'] ?? '');
@@ -52,6 +55,7 @@ $address = (string)($old['address'] ?? ($me['address'] ?? ''));
 
 $nic = (string)($me['nic'] ?? '');
 
+/** Area display name (admin may not have area) */
 $areaName = '—';
 $areaId = (int)($me['area_id'] ?? 0);
 if ($areaId > 0) {
@@ -61,24 +65,7 @@ if ($areaId > 0) {
 }
 ?>
 
-<style>
- 
-  .profile-shell{
-    max-width: 980px;
-    margin: 0 auto;
-  }
-  .avatar-ring{
-    width: 120px; height: 120px;
-    border-radius: 50%;
-    border: 3px solid #ffae52;
-    display:flex; align-items:center; justify-content:center;
-    margin: 0 auto 10px auto;
-  }
-  .avatar-ring i{
-    font-size: 56px;
-    color: #ffad52;
-  }
-</style>
+<div class="container py-4 app-container" style="max-width: 980px;">
 
   <?php if ($flash && is_array($flash)): ?>
     <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
@@ -107,7 +94,7 @@ if ($areaId > 0) {
 
     <form id="profileForm" method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" novalidate>
 
-
+      <!-- keep same feature -->
       <input type="hidden" name="return_to" value="/admin/profile.php">
 
       <div class="row g-3">
@@ -172,6 +159,7 @@ if ($areaId > 0) {
           <div class="field-error"><?= h($errors['gender'] ?? '') ?></div>
         </div>
 
+        <!-- keep feature/column even if you don't show it elsewhere -->
         <div class="col-12">
           <label class="form-label">Address</label>
           <input class="form-control" name="address" value="<?= h($address) ?>" maxlength="120" readonly>
@@ -180,6 +168,7 @@ if ($areaId > 0) {
 
       </div>
 
+      <!-- citizen style buttons -->
       <div class="d-flex justify-content-center gap-2 mt-4 flex-wrap">
         <button type="button" class="btn btn-outline-brand" id="btnEdit">Edit Profile</button>
         <button type="submit" class="btn btn-brand" id="btnSave" style="display:none;">Save Changes</button>
@@ -214,6 +203,7 @@ if ($areaId > 0) {
       else el.removeAttribute('readonly');
     });
 
+    // radios must be disabled/enabled (readonly doesn't work)
     form.querySelectorAll('input[name="gender"]').forEach(r => r.disabled = viewMode);
 
     btnSave.style.display   = viewMode ? 'none' : 'inline-block';
@@ -226,9 +216,10 @@ if ($areaId > 0) {
   btnEdit.addEventListener('click', () => setMode(false));
 
   btnCancel.addEventListener('click', () => {
-    window.location.reload(); 
+    window.location.reload(); // cancel => reset values
   });
 
+  // basic client validation (server still validates)
   form.addEventListener('submit', (e) => {
     const name  = (form.querySelector('input[name="name"]').value || '').trim();
     const email = (form.querySelector('input[name="email"]').value || '').trim();
@@ -236,7 +227,7 @@ if ($areaId > 0) {
     if (name.length < 2 || email.length < 5) {
       e.preventDefault();
       alert("Please fill required fields (Name, Email).");
-    }
+
   });
 })();
 </script>
