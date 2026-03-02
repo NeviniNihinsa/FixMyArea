@@ -51,11 +51,11 @@ if (!$issue) {
 // 2) Upvotes count (if table exists)
 $upvotes = 0;
 try {
-    $st = $pdo->prepare("SELECT COUNT(*) FROM issue_votes WHERE issue_id=?");
+    $st = $pdo->prepare("SELECT COUNT(*) FROM votes WHERE issue_id=?");
     $st->execute([$issueId]);
     $upvotes = (int)$st->fetchColumn();
 } catch (Throwable $e) {
-    // if you don't have issue_votes table yet, ignore
+     
     $upvotes = 0;
 }
 
@@ -102,7 +102,7 @@ $comments = [];
 try {
     $st = $pdo->prepare("
       SELECT c.comment_text, c.created_at, u.name AS user_name, u.role AS user_role
-      FROM issue_comments c
+      FROM comments c
       JOIN users u ON u.user_id = c.user_id
       WHERE c.issue_id = ?
       ORDER BY c.created_at DESC
@@ -293,7 +293,7 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
 
                         <!-- Citizen Ratings & Feedback -->
                 <div class="card-dark p-4 mt-4">
-                  <h5 class="fw-semibold mb-3">Citizen Ratings &amp; Feedback</h5>
+                  <h5 class="fw-semibold mb-3">Tenant Ratings &amp; Feedback</h5>
 
                   <?php if (empty($feedbacks)): ?>
                     <div class="text-muted">No feedback submitted yet.</div>
@@ -349,8 +349,8 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
                       <div class="small fw-semibold mb-2">Average Ratings (<?= count($feedbacks) ?> response<?= count($feedbacks) > 1 ? 's' : '' ?>)</div>
                       <div class="d-flex gap-4 flex-wrap small">
                         <span>Overall: <strong style="color:#ffd36b;"><?= $avgOverall ?>/5</strong></span>
-                        <span>Field Worker: <strong style="color:#ffd36b;"><?= $avgWorker ?>/5</strong></span>
-                        <span>Local Authority: <strong style="color:#ffd36b;"><?= $avgAuthority ?>/5</strong></span>
+                        <span>Maintenance Technician: <strong style="color:#ffd36b;"><?= $avgWorker ?>/5</strong></span>
+                        <span>Property Manager: <strong style="color:#ffd36b;"><?= $avgAuthority ?>/5</strong></span>
                       </div>
                     </div>
 

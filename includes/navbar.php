@@ -85,12 +85,11 @@ if ($isLoggedIn && $notifLink !== '' && $userId > 0) {
 }
 ?>
 
-<nav class="navbar navbar-expand-lg navbar-dark"
-     style="background: rgba(0,0,0,0.15); border-bottom: 1px solid rgba(255,255,255,0.08);">
+<nav class="navbar navbar-expand-lg navbar-dark">
   <div class="container-fluid px-3">
 
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= $homeLink ?>">
-      <img src="<?= BASE_URL ?>/public/assets/img/logo2.png"
+      <img src="<?= BASE_URL ?>/public/assets/img/logo3.png"
            alt="FixMyArea"
            style="height:40px;width:auto;object-fit:contain;"
            onerror="this.style.display='none'">
