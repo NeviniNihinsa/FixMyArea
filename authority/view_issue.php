@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
-require_once __DIR__ . '/../includes/notify.php'; // ✅ ADDED (only change #1)
+require_once __DIR__ . '/../includes/notify.php';
 
 require_roles(['authority', 'local authority']);
 
@@ -30,16 +30,20 @@ function stars(?int $val): string {
   for ($i = 1; $i <= 5; $i++) $out .= ($i <= $val) ? '★ ' : '☆ ';
   return '<span style="font-size:22px; line-height:1;">' . $out . '</span>';
 }
+function isAjaxRequest(): bool {
+  $hdr = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+  return $hdr === 'xmlhttprequest';
+}
+function jsonOut(array $data, int $code = 200): void {
+  http_response_code($code);
+  header('Content-Type: application/json; charset=utf-8');
+  echo json_encode($data);
+  exit;
+}
 
-/* -----------------------------
-   0) Flash
------------------------------- */
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
-/* -----------------------------
-   1) Authority area (must be assigned)
------------------------------- */
 $st = $pdo->prepare("SELECT area_id FROM users WHERE user_id=? LIMIT 1");
 $st->execute([$userId]);
 $myAreaId = (int)($st->fetchColumn() ?: 0);
@@ -50,9 +54,6 @@ if ($myAreaId <= 0) {
   exit;
 }
 
-/* -----------------------------
-   2) Get issue id (GET)
------------------------------- */
 $issueId = (int)($_GET['issue_id'] ?? 0);
 if ($issueId <= 0) $issueId = (int)($_GET['id'] ?? 0);
 
@@ -62,44 +63,50 @@ if ($issueId <= 0) {
   exit;
 }
 
-/* -----------------------------
-   3) Handle ASSIGN in SAME FILE (POST)
------------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'assign_worker') {
+
   $postIssueId = (int)($_POST['issue_id'] ?? 0);
   $workerId    = (int)($_POST['field_worker_id'] ?? 0);
+  $ajax        = isAjaxRequest();
 
   if ($postIssueId <= 0 || $workerId <= 0) {
-    $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Invalid assignment request.'];
+    $msg = 'Invalid assignment request.';
+    if ($ajax) jsonOut(['ok' => false, 'type' => 'danger', 'msg' => $msg], 422);
+
+    $_SESSION['flash'] = ['type' => 'danger', 'msg' => $msg];
     header("Location: " . BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId);
     exit;
   }
 
-  // Ensure issue belongs to authority area
   $st = $pdo->prepare("SELECT issue_id FROM issues WHERE issue_id=? AND area_id=? LIMIT 1");
   $st->execute([$postIssueId, $myAreaId]);
   $okIssue = $st->fetchColumn();
   if (!$okIssue) {
+    $msg = '403 Forbidden (Issue not in your area)';
+    if ($ajax) jsonOut(['ok' => false, 'type' => 'danger', 'msg' => $msg], 403);
+
     http_response_code(403);
-    echo "403 Forbidden (Issue not in your area)";
+    echo $msg;
     exit;
   }
 
-  // Ensure worker is active + same area
   $st = $pdo->prepare("
     SELECT user_id
     FROM users
     WHERE user_id = ?
       AND area_id = ?
       AND LOWER(status) = 'active'
-      AND LOWER(role) IN ('field worker','worker')
+      AND TRIM(LOWER(role)) IN ('field worker','worker','field_worker','fieldworker')
     LIMIT 1
   ");
   $st->execute([$workerId, $myAreaId]);
   $okWorker = $st->fetchColumn();
 
   if (!$okWorker) {
-    $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Selected worker is not active or not in your area.'];
+    $msg = 'Selected worker is not active or not in your area.';
+    if ($ajax) jsonOut(['ok' => false, 'type' => 'danger', 'msg' => $msg], 422);
+
+    $_SESSION['flash'] = ['type' => 'danger', 'msg' => $msg];
     header("Location: " . BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId);
     exit;
   }
@@ -107,7 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   try {
     $pdo->beginTransaction();
 
-    // Prevent duplicate active assignment
     $chk = $pdo->prepare("
       SELECT assignment_id
       FROM assignments
@@ -121,14 +127,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     if ($already) {
       $pdo->rollBack();
-      $_SESSION['flash'] = ['type' => 'warning', 'msg' => 'This issue already has an active assignment.'];
+      $msg = 'This issue already has an active assignment.';
+      if ($ajax) jsonOut(['ok' => false, 'type' => 'warning', 'msg' => $msg], 409);
+
+      $_SESSION['flash'] = ['type' => 'warning', 'msg' => $msg];
       header("Location: " . BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId);
       exit;
     }
 
-    // Get reporter id + worker name (used for notifications)
     $st = $pdo->prepare("
-      SELECT i.reporter_user_id, u.name AS worker_name
+      SELECT i.reporter_user_id, u.name AS worker_name, u.email AS worker_email
       FROM issues i
       JOIN users u ON u.user_id = ?
       WHERE i.issue_id = ?
@@ -136,21 +144,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     ");
     $st->execute([$workerId, $postIssueId]);
     $tmp = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-    $reporterId = (int)($tmp['reporter_user_id'] ?? 0);
-    $workerName = (string)($tmp['worker_name'] ?? 'Field Worker');
+    $reporterId  = (int)($tmp['reporter_user_id'] ?? 0);
+    $workerName  = (string)($tmp['worker_name'] ?? 'Field Worker');
+    $workerEmail = (string)($tmp['worker_email'] ?? '');
 
-    /**
-     * IMPORTANT: your DB has FK:
-     * assignments.assigned_by_authority_id -> users.user_id
-     * so we MUST insert assigned_by_authority_id.
-     */
     $ins = $pdo->prepare("
       INSERT INTO assignments (issue_id, field_worker_id, assigned_by_authority_id, assignment_status, assigned_at)
       VALUES (?, ?, ?, 'ASSIGNED', NOW())
     ");
     $ins->execute([$postIssueId, $workerId, $userId]);
 
-    // Update issue status to ASSIGNED if currently PENDING
     $upd = $pdo->prepare("
       UPDATE issues
       SET status = CASE WHEN status = 'PENDING' THEN 'ASSIGNED' ELSE status END
@@ -159,7 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     ");
     $upd->execute([$postIssueId, $myAreaId]);
 
-    // ✅ ADDED (only change #2): insert notifications
     create_notification(
       $pdo,
       $workerId,
@@ -184,26 +186,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
     $pdo->commit();
 
-    $_SESSION['flash'] = ['type' => 'success', 'msg' => 'Worker assigned successfully.'];
-    header("Location: " . BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId . "&assigned=1");
+    $msg = 'Worker assigned successfully.';
+    if ($ajax) {
+      jsonOut([
+        'ok' => true,
+        'type' => 'success',
+        'msg' => $msg,
+        'worker' => [
+          'name' => $workerName,
+          'email' => $workerEmail,
+          'status' => 'ASSIGNED'
+        ]
+      ]);
+    }
+
+    $_SESSION['flash'] = ['type' => 'success', 'msg' => $msg];
+    header("Location: " . BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId);
     exit;
 
   } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Failed to assign worker: ' . $e->getMessage()];
+    $msg = 'Failed to assign worker: ' . $e->getMessage();
+
+    if ($ajax) jsonOut(['ok' => false, 'type' => 'danger', 'msg' => $msg], 500);
+
+    $_SESSION['flash'] = ['type' => 'danger', 'msg' => $msg];
     header("Location: " . BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId);
     exit;
   }
 }
 
-/* -----------------------------
-   4) Load issue (must be in this authority area)
------------------------------- */
 $st = $pdo->prepare("
   SELECT
     i.issue_id, i.title, i.description, i.status, i.created_at, i.area_id,
     u.name AS reporter_name,
     u.email AS reporter_email,
+    u.address AS unit_number,
     a.area_name,
     c.category_name
   FROM issues i
@@ -223,12 +241,11 @@ if (!$issue) {
   exit;
 }
 
-/* Upvotes */
 $st = $pdo->prepare("SELECT COUNT(*) FROM votes WHERE issue_id=?");
 $st->execute([$issueId]);
 $upvotes = (int)$st->fetchColumn();
 
-/* Report photos (top 3) */
+/* REPORT photos */
 $st = $pdo->prepare("
   SELECT file_path
   FROM issue_photos
@@ -238,7 +255,16 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $reportPhotos = $st->fetchAll(PDO::FETCH_COLUMN);
 
-/* Comments */
+/* ✅ PROOF photos (photo_type='PROOF') */
+$st = $pdo->prepare("
+  SELECT file_path
+  FROM issue_photos
+  WHERE issue_id=? AND photo_type='PROOF'
+  ORDER BY photo_id DESC
+");
+$st->execute([$issueId]);
+$proofPhotos = $st->fetchAll(PDO::FETCH_COLUMN);
+
 $st = $pdo->prepare("
   SELECT c.comment_text, c.created_at, u.name
   FROM comments c
@@ -249,19 +275,17 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $comments = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* Field workers list (same area) */
 $st = $pdo->prepare("
   SELECT user_id, name, email
   FROM users
   WHERE area_id = ?
-    AND LOWER(role) IN ('field worker','worker')
+    AND TRIM(LOWER(role)) IN ('field worker','worker','field_worker','fieldworker')
     AND LOWER(status) = 'active'
   ORDER BY name
 ");
 $st->execute([$myAreaId]);
 $fieldWorkers = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* Current active assignment (ASSIGNED/ACCEPTED) */
 $st = $pdo->prepare("
   SELECT a.assignment_status, u.name AS worker_name, u.email AS worker_email
   FROM assignments a
@@ -274,7 +298,6 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $activeAssign = $st->fetch(PDO::FETCH_ASSOC);
 
-/* Ratings */
 $overall = $worker = $authority = null;
 try {
   $st = $pdo->prepare("
@@ -292,42 +315,33 @@ try {
   $authority = !empty($r['authority_avg']) ? (int)round((float)$r['authority_avg']) : null;
 } catch (Throwable $e) {}
 
-/* Status options */
 $allowedStatuses = ['PENDING','ASSIGNED','IN_PROGRESS','COMPLETED','CLOSED','REOPENED','REJECTED'];
 $currentStatus = (string)$issue['status'];
 
-/* -----------------------------
-   5) Render
------------------------------- */
+/* Timeline */
+$st = $pdo->prepare("
+  SELECT status, note, created_at
+  FROM issue_status_history
+  WHERE issue_id = ?
+  ORDER BY created_at ASC
+");
+$st->execute([$issueId]);
+$timeline = $st->fetchAll(PDO::FETCH_ASSOC);
+
 $page_title = 'View Issue - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 ?>
 
-<style>
-  .meta-row{display:flex;flex-wrap:wrap;gap:18px;align-items:center;}
-  .meta-row .meta{ color: var(--muted-400); font-size:0.95rem; }
-  .upvote-box{display:flex;align-items:center;gap:10px;justify-content:flex-end;min-width:150px;}
-  .tri{width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:22px solid rgba(255,173,82,0.6);}
-  .photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
-  .photo{width:100%;height:110px;border-radius:12px;border:1px solid var(--border);background:rgba(0,0,0,0.12);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  .photo img{width:100%;height:100%;object-fit:cover;display:block;}
-  .desc-box{border:1px solid var(--border);border-radius:14px;padding:12px;background:rgba(0,0,0,0.08);min-height:110px;}
-  .comment-box{min-height:160px;resize:vertical;}
-  .ratings-row{display:flex;justify-content:space-between;gap:12px;align-items:center;}
-  @media (max-width:768px){
-    .photo-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
-    .upvote-box{justify-content:flex-start;}
-  }
-</style>
-
 <div class="container py-4 app-container">
 
-  <?php if ($flash): ?>
-    <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>">
-      <?= h($flash['msg'] ?? '') ?>
-    </div>
-  <?php endif; ?>
+  <div id="flashArea">
+    <?php if ($flash): ?>
+      <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>">
+        <?= h($flash['msg'] ?? '') ?>
+      </div>
+    <?php endif; ?>
+  </div>
 
   <div class="card-dark p-3 p-md-4">
 
@@ -340,6 +354,8 @@ require_once __DIR__ . '/../includes/navbar.php';
         <div class="meta-row">
           <div class="meta"><span class="fw-semibold text-light">Reported by:</span> <?= h($issue['reporter_name']) ?></div>
           <div class="meta"><span class="fw-semibold text-light">Category:</span> <?= h($issue['category_name'] ?? '—') ?></div>
+          <div class="meta"><span class="fw-semibold text-light">Branch:</span> <?= h($issue['area_name'] ?? '—') ?></div>
+          <div class="meta"><span class="fw-semibold text-light">Unit Number:</span> <?= h($issue['unit_number'] ?? '—') ?></div>
           <div class="meta"><span class="fw-semibold text-light">Status:</span> <?= h($currentStatus) ?></div>
 
           <form class="d-flex flex-wrap gap-2 align-items-center" method="POST" action="<?= BASE_URL ?>/actions/authority_update_status.php">
@@ -366,18 +382,19 @@ require_once __DIR__ . '/../includes/navbar.php';
       <div class="card-dark p-3">
         <label class="form-label mb-1">Assign Field Worker</label>
 
-        <?php if ($activeAssign): ?>
-          <div class="text-muted small mb-2">
-            Currently assigned to: <span class="text-light fw-semibold"><?= h($activeAssign['worker_name']) ?></span>
-            (<?= h($activeAssign['assignment_status']) ?>)
-          </div>
-        <?php endif; ?>
+        <div id="currentAssignBlock" class="text-muted small mb-2" style="<?= $activeAssign ? '' : 'display:none;' ?>">
+          Currently assigned to:
+          <span class="text-light fw-semibold" id="assignedWorkerName"><?= h($activeAssign['worker_name'] ?? '') ?></span>
+          <span id="assignedWorkerEmail"><?= !empty($activeAssign['worker_email']) ? ' (' . h($activeAssign['worker_email']) . ')' : '' ?></span>
+          (<span id="assignedStatus"><?= h($activeAssign['assignment_status'] ?? 'ASSIGNED') ?></span>)
+        </div>
 
-        <form method="POST" class="d-flex flex-wrap gap-2 align-items-center">
+        <form id="assignForm" method="POST" class="d-flex flex-wrap gap-2 align-items-center">
           <input type="hidden" name="action" value="assign_worker">
           <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
 
-          <select name="field_worker_id" class="form-select" style="max-width:360px;" <?= $activeAssign ? 'disabled' : '' ?> required>
+          <select id="workerSelect" name="field_worker_id" class="form-select" style="max-width:360px;"
+                  <?= $activeAssign ? 'disabled' : '' ?> required>
             <option value="">Select worker</option>
             <?php foreach ($fieldWorkers as $w): ?>
               <option value="<?= (int)$w['user_id'] ?>">
@@ -386,10 +403,11 @@ require_once __DIR__ . '/../includes/navbar.php';
             <?php endforeach; ?>
           </select>
 
-          <button class="btn btn-brand btn-sm" type="submit" <?= $activeAssign ? 'disabled' : '' ?>
-                  onclick="return confirm('Assign this field worker to the issue?');">
+          <button id="assignBtn" class="btn btn-brand btn-sm" type="submit" <?= $activeAssign ? 'disabled' : '' ?>>
             Assign
           </button>
+
+          <span id="assignSpinner" class="text-muted small" style="display:none;">Assigning…</span>
         </form>
       </div>
     </div>
@@ -405,16 +423,21 @@ require_once __DIR__ . '/../includes/navbar.php';
             $slice = array_slice($reportPhotos, 0, 3);
             $count = count($slice);
           ?>
+
           <?php if ($count === 0): ?>
             <?php for ($i=0; $i<3; $i++): ?>
-              <div class="photo text-muted small">No Photo</div>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
             <?php endfor; ?>
           <?php else: ?>
             <?php foreach ($slice as $p): ?>
               <div class="photo"><img src="<?= h(fileUrl((string)$p)) ?>" alt="Issue photo"></div>
             <?php endforeach; ?>
             <?php for ($i=$count; $i<3; $i++): ?>
-              <div class="photo text-muted small">No Photo</div>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
             <?php endfor; ?>
           <?php endif; ?>
         </div>
@@ -424,16 +447,37 @@ require_once __DIR__ . '/../includes/navbar.php';
         </div>
       </div>
 
+      <!-- ✅ FIXED: Proof of Fix shows photo_type = PROOF -->
       <div class="col-12 col-lg-5">
         <div class="fw-semibold mb-2">Proof of Fix:</div>
+
         <div class="photo-grid">
-          <?php for ($i=0; $i<3; $i++): ?>
-            <div class="photo text-muted small">Placeholder</div>
-          <?php endfor; ?>
+          <?php
+            $pslice = array_slice($proofPhotos, 0, 3);
+            $pcount = count($pslice);
+          ?>
+
+          <?php if ($pcount === 0): ?>
+            <?php for ($i=0; $i<3; $i++): ?>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
+            <?php endfor; ?>
+          <?php else: ?>
+            <?php foreach ($pslice as $p): ?>
+              <div class="photo"><img src="<?= h(fileUrl((string)$p)) ?>" alt="Proof photo"></div>
+            <?php endforeach; ?>
+            <?php for ($i=$pcount; $i<3; $i++): ?>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
+            <?php endfor; ?>
+          <?php endif; ?>
         </div>
-        <div class="text-muted small mt-2">
-          Proof images are handled by the field worker process (no upload from authority).
-        </div>
+
+        <?php if (empty($proofPhotos)): ?>
+          <div class="text-muted small mt-2">No proof photos uploaded yet.</div>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -455,6 +499,26 @@ require_once __DIR__ . '/../includes/navbar.php';
           <div><?= stars($authority) ?></div>
         </div>
       </div>
+    </div>
+
+    <div class="card-dark p-3 mb-3">
+      <div class="fw-semibold mb-2">Status Timeline</div>
+
+      <?php if (empty($timeline)): ?>
+        <div class="text-muted small">No history yet.</div>
+      <?php else: ?>
+        <ul class="mb-0">
+          <?php foreach ($timeline as $t): ?>
+            <li class="small mb-2">
+              <strong><?= h($t['status'] ?? '') ?></strong>
+              <span class="text-muted"> — <?= h($t['created_at'] ?? '') ?></span>
+              <?php if (!empty($t['note'])): ?>
+                <div class="text-muted"><?= h($t['note']) ?></div>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
     </div>
 
     <div class="fw-semibold mb-2">Comments</div>
@@ -492,6 +556,92 @@ require_once __DIR__ . '/../includes/navbar.php';
 
 <?php if (!empty($_GET['assigned']) && (int)$_GET['assigned'] === 1): ?>
 <script>
-  alert("Successfully assigned!");
+(function(){
+  const form = document.getElementById('assignForm');
+  if (!form) return;
+
+  const btn = document.getElementById('assignBtn');
+  const sel = document.getElementById('workerSelect');
+  const spn = document.getElementById('assignSpinner');
+
+  const flashArea = document.getElementById('flashArea');
+
+  const currentBlock = document.getElementById('currentAssignBlock');
+  const wName = document.getElementById('assignedWorkerName');
+  const wEmail = document.getElementById('assignedWorkerEmail');
+  const wStatus = document.getElementById('assignedStatus');
+
+  function esc(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showFlash(type, msg){
+    if (!flashArea) return;
+    flashArea.innerHTML = `
+      <div class="alert alert-${esc(type)}">
+        ${esc(msg)}
+      </div>
+    `;
+    flashArea.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+
+    if (!sel.value) {
+      showFlash('warning', 'Please select a worker.');
+      return;
+    }
+    if (!confirm('Assign this field worker to the issue?')) return;
+
+    btn.disabled = true;
+    spn.style.display = 'inline';
+    sel.disabled = true;
+
+    try {
+      const fd = new FormData(form);
+      fd.set('field_worker_id', sel.value);
+
+      const res = await fetch(window.location.href, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: fd
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch (e) {}
+
+      if (!data || !data.ok) {
+        const msg = (data && data.msg) ? data.msg : 'Failed to assign (server error).';
+        showFlash((data && data.type) ? data.type : 'danger', msg);
+
+        btn.disabled = false;
+        sel.disabled = false;
+        spn.style.display = 'none';
+        return;
+      }
+
+      showFlash(data.type || 'success', data.msg || 'Assigned.');
+
+      if (data.worker) {
+        currentBlock.style.display = '';
+        wName.textContent = data.worker.name || 'Field Worker';
+        wEmail.textContent = data.worker.email ? (' (' + data.worker.email + ')') : '';
+        wStatus.textContent = data.worker.status || 'ASSIGNED';
+      }
+
+      btn.disabled = true;
+      sel.disabled = true;
+      spn.style.display = 'none';
+
+    } catch(err){
+      showFlash('danger', 'Unexpected error while assigning.');
+      btn.disabled = false;
+      sel.disabled = false;
+      spn.style.display = 'none';
+    }
+  });
+})();
 </script>
-<?php endif; ?>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

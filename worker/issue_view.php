@@ -18,13 +18,13 @@ if ($issueId <= 0) {
   exit;
 }
 
-// Ensure issue is assigned to this worker
 $st = $pdo->prepare("
   SELECT
     i.issue_id, i.title, i.description, i.status, i.created_at,
     c.category_name,
     a.area_name,
-    u.name AS reporter_name, u.email AS reporter_email
+    u.name AS reporter_name, u.email AS reporter_email,
+    u.address AS unit_number
   FROM assignments x
   JOIN issues i ON i.issue_id = x.issue_id
   LEFT JOIN issue_categories c ON c.category_id = i.category_id
@@ -73,7 +73,6 @@ try {
 }
 $history = $st->fetchAll(PDO::FETCH_ASSOC);
 
-// comments
 $comments = [];
 try {
   $st = $pdo->prepare("
@@ -89,7 +88,6 @@ try {
   $comments = [];
 }
 
-// upvotes count
 $upvotes = 0;
 try {
   $st = $pdo->prepare("SELECT COALESCE(SUM(value),0) FROM votes WHERE issue_id=?");
@@ -97,6 +95,26 @@ try {
   $upvotes = (int)$st->fetchColumn();
 } catch (Throwable $e) {
   $upvotes = 0;
+}
+
+// ratings (avg)
+$overall = $worker = $authority = null;
+try {
+  $st = $pdo->prepare("
+    SELECT
+      AVG(overall_rating)   AS overall_avg,
+      AVG(worker_rating)    AS worker_avg,
+      AVG(authority_rating) AS authority_avg
+    FROM feedback_ratings
+    WHERE issue_id = ?
+  ");
+  $st->execute([$issueId]);
+  $r = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+  $overall   = !empty($r['overall_avg'])   ? (int)round((float)$r['overall_avg'])   : null;
+  $worker    = !empty($r['worker_avg'])    ? (int)round((float)$r['worker_avg'])    : null;
+  $authority = !empty($r['authority_avg']) ? (int)round((float)$r['authority_avg']) : null;
+} catch (Throwable $e) {
+  $overall = $worker = $authority = null;
 }
 
 // flash
@@ -109,6 +127,12 @@ function photoUrl(string $path): string {
   return str_starts_with($path, '/')
     ? (BASE_URL . $path)
     : (BASE_URL . '/' . ltrim($path, '/'));
+}
+function stars(?int $val): string {
+  if ($val === null) return '<span class="text-muted small">N/A</span>';
+  $out = '';
+  for ($i = 1; $i <= 5; $i++) $out .= ($i <= $val) ? '★ ' : '☆ ';
+  return '<span style="font-size:20px; line-height:1;">' . $out . '</span>';
 }
 ?>
 
@@ -125,6 +149,7 @@ function photoUrl(string $path): string {
         Reported by: <span class="fw-semibold"><?= h($issue['reporter_name'] ?? $issue['reporter_email'] ?? '—') ?></span>
         &nbsp; • &nbsp; Category: <span class="fw-semibold"><?= h($issue['category_name'] ?? '—') ?></span>
         &nbsp; • &nbsp; Status: <span class="fw-semibold"><?= h((string)$issue['status']) ?></span>
+        &nbsp; • &nbsp; Address: <span class="fw-semibold"><?= h($issue['unit_number'] ?? '—') ?></span>
       </div>
     </div>
 
@@ -150,7 +175,8 @@ function photoUrl(string $path): string {
             <?php
               $hasReport = false;
               foreach ($photos as $p):
-                if (($p['photo_type'] ?? '') !== 'REPORT') continue;
+                $t = strtoupper(trim((string)($p['photo_type'] ?? '')));
+                if ($t !== 'REPORT') continue;
                 $hasReport = true;
             ?>
               <a href="<?= h(photoUrl((string)$p['file_path'])) ?>" target="_blank" rel="noreferrer">
@@ -164,19 +190,20 @@ function photoUrl(string $path): string {
           </div>
         </div>
 
-        <!-- Proof of Fix -->
+        <!-- PROOF photos (photo_type = PROOF) -->
         <div class="mt-4">
           <div class="fw-semibold mb-2">Proof of Fix:</div>
+
           <div class="d-flex flex-wrap gap-2">
             <?php
               $hasProof = false;
               foreach ($photos as $p):
-                $t = (string)($p['photo_type'] ?? '');
-                if ($t !== 'FIX_PROOF') continue;
+                $t = strtoupper(trim((string)($p['photo_type'] ?? '')));
+                if ($t !== 'PROOF') continue;
                 $hasProof = true;
             ?>
               <a href="<?= h(photoUrl((string)$p['file_path'])) ?>" target="_blank" rel="noreferrer">
-                <img src="<?= h(photoUrl((string)$p['file_path'])) ?>" alt="<?= h($t) ?>"
+                <img src="<?= h(photoUrl((string)$p['file_path'])) ?>" alt="PROOF" title="PROOF"
                      style="width:110px;height:90px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,0.12);">
               </a>
             <?php endforeach; ?>
@@ -190,13 +217,14 @@ function photoUrl(string $path): string {
           <!-- Update Status -->
           <form method="POST" action="<?= BASE_URL ?>/actions/worker_issue_update_status.php" class="d-flex gap-2 flex-wrap m-0">
             <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
+
+            <?php $curStatus = strtoupper((string)($issue['status'] ?? '')); ?>
             <select name="status" class="form-select" style="min-width:220px;" required>
-              <option value="">Update status...</option>
-              <option value="PENDING">PENDING</option>
-              <option value="IN_PROGRESS">IN_PROGRESS</option>
-              <option value="RESOLVED">RESOLVED</option>
-              <option value="CLOSED">CLOSED</option>
+              <option value="" disabled>Update status...</option>
+              <option value="IN_PROGRESS" <?= $curStatus === 'IN_PROGRESS' ? 'selected' : '' ?>>IN_PROGRESS</option>
+              <option value="COMPLETED" <?= $curStatus === 'COMPLETED' ? 'selected' : '' ?>>COMPLETED</option>
             </select>
+
             <button class="btn btn-outline-brand" type="submit">Update Status</button>
           </form>
 
@@ -204,10 +232,13 @@ function photoUrl(string $path): string {
           <form method="POST" action="<?= BASE_URL ?>/actions/worker_issue_upload_proof.php"
                 enctype="multipart/form-data" class="d-flex gap-2 flex-wrap m-0">
             <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
+
+            <!-- Only PROOF -->
             <select name="photo_type" class="form-select" style="min-width:220px;" required>
-              <option value="">Proof type...</option>
-              <option value="FIX_PROOF">FIX_PROOF</option>
+              <option value="" disabled selected>Proof type...</option>
+              <option value="PROOF">PROOF</option>
             </select>
+
             <input type="file" name="photo" class="form-control" accept="image/jpeg,image/png,image/webp" required>
             <button class="btn btn-outline-light" type="submit">Upload Proof</button>
           </form>
@@ -246,9 +277,9 @@ function photoUrl(string $path): string {
 
     </div>
 
-    <!-- RIGHT: timeline -->
+    <!-- RIGHT -->
     <div class="col-12 col-lg-4">
-      <div class="card-dark p-4">
+      <div class="card-dark p-4 mb-4">
         <div class="fw-semibold mb-3">Timeline</div>
         <?php if (!$history): ?>
           <div class="text-muted small">No history yet.</div>
@@ -268,6 +299,25 @@ function photoUrl(string $path): string {
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
+      </div>
+
+      <div class="card-dark p-4">
+        <div class="fw-semibold mb-3">Service Ratings</div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="text-muted">Overall Issue Fixation:</div>
+          <div><?= stars($overall) ?></div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="text-muted">Field Worker:</div>
+          <div><?= stars($worker) ?></div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="text-muted">Local Authority:</div>
+          <div><?= stars($authority) ?></div>
+        </div>
       </div>
     </div>
 
