@@ -255,7 +255,6 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $reportPhotos = $st->fetchAll(PDO::FETCH_COLUMN);
 
-/* ✅ PROOF photos (photo_type='PROOF') */
 $st = $pdo->prepare("
   SELECT file_path
   FROM issue_photos
@@ -447,7 +446,6 @@ require_once __DIR__ . '/../includes/navbar.php';
         </div>
       </div>
 
-      <!-- ✅ FIXED: Proof of Fix shows photo_type = PROOF -->
       <div class="col-12 col-lg-5">
         <div class="fw-semibold mb-2">Proof of Fix:</div>
 
@@ -552,9 +550,6 @@ require_once __DIR__ . '/../includes/navbar.php';
   </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
-
-<?php if (!empty($_GET['assigned']) && (int)$_GET['assigned'] === 1): ?>
 <script>
 (function(){
   const form = document.getElementById('assignForm');
