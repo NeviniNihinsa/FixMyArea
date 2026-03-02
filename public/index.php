@@ -268,7 +268,7 @@ require_once __DIR__ . '/../includes/navbar_auth.php';
     <div class="row g-4">
       <div class="col-12 col-md-6">
         <div class="feature-card">
-          <div class="feature-icon">📸</div>
+          <div class="feature-icon"><i class="bi bi-camera-fill"></i></div>
           <div>
             <div class="feature-title">Photo Evidence</div>
             <p class="feature-desc">Submit before & after photos with every report. Workers upload proof-of-fix so nothing is left unverified.</p>
@@ -277,7 +277,7 @@ require_once __DIR__ . '/../includes/navbar_auth.php';
       </div>
       <div class="col-12 col-md-6">
         <div class="feature-card">
-          <div class="feature-icon">🔔</div>
+          <div class="feature-icon"><i class="bi bi-bell-fill"></i></div>
           <div>
             <div class="feature-title">Real-Time Notifications</div>
             <p class="feature-desc">Tenants receive instant updates whenever their issue status changes — from pending to resolved.</p>
@@ -286,7 +286,7 @@ require_once __DIR__ . '/../includes/navbar_auth.php';
       </div>
       <div class="col-12 col-md-6">
         <div class="feature-card">
-          <div class="feature-icon">📊</div>
+          <div class="feature-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
           <div>
             <div class="feature-title">Analytics Dashboard</div>
             <p class="feature-desc">Management gets full visibility with KPI dashboards — resolution times, issue trends, and worker performance.</p>
@@ -295,7 +295,7 @@ require_once __DIR__ . '/../includes/navbar_auth.php';
       </div>
       <div class="col-12 col-md-6">
         <div class="feature-card">
-          <div class="feature-icon">⭐</div>
+          <div class="feature-icon"><i class="bi bi-star-fill"></i></div>
           <div>
             <div class="feature-title">Ratings & Feedback</div>
             <p class="feature-desc">Tenants rate every completed job, keeping maintenance standards high and workers accountable.</p>
@@ -315,16 +315,16 @@ require_once __DIR__ . '/../includes/navbar_auth.php';
     <p class="section-sub">From plumbing to pest control — all building issues in one place</p>
 
     <div class="d-flex flex-wrap gap-3 justify-content-center">
-      <div class="cat-pill"><span>🔧</span> Plumbing &amp; Water</div>
-      <div class="cat-pill"><span>⚡</span> Electrical &amp; Power</div>
-      <div class="cat-pill"><span>🛗</span> Lift / Elevator</div>
-      <div class="cat-pill"><span>🧹</span> Cleaning &amp; Hygiene</div>
-      <div class="cat-pill"><span>🏗️</span> Building &amp; Structure</div>
-      <div class="cat-pill"><span>🐛</span> Pest Control</div>
-      <div class="cat-pill"><span>🔒</span> Security &amp; CCTV</div>
-      <div class="cat-pill"><span>❄️</span> Air Conditioning</div>
-      <div class="cat-pill"><span>🌿</span> Landscaping</div>
-      <div class="cat-pill"><span>🔥</span> Fire Safety</div>
+      <div class="cat-pill">Plumbing &amp; Water</div>
+      <div class="cat-pill">Electrical &amp; Power</div>
+      <div class="cat-pill">Lift / Elevator</div>
+      <div class="cat-pill">Cleaning &amp; Hygiene</div>
+      <div class="cat-pill">Building &amp; Structure</div>
+      <div class="cat-pill">Pest Control</div>
+      <div class="cat-pill">Security &amp; CCTV</div>
+      <div class="cat-pill">Air Conditioning</div>
+      <div class="cat-pill">Landscaping</div>
+      <div class="cat-pill">Fire Safety</div>
     </div>
   </div>
 </section>
@@ -342,28 +342,28 @@ require_once __DIR__ . '/../includes/navbar_auth.php';
     <div class="row g-4">
       <div class="col-6 col-md-3">
         <div class="role-card">
-          <span class="role-icon">🏠</span>
-          <div class="role-title">Tenant / Resident</div>
+          <span class="role-icon"><i class="bi bi-house-door-fill"></i></span>
+          <div class="role-title">Tenant</div>
           <p class="role-desc">Report issues, track progress, and rate completed work from any device.</p>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="role-card">
-          <span class="role-icon">🏢</span>
-          <div class="role-title">Management</div>
+          <span class="role-icon"><i class="bi bi-building-fill"></i></span>
+          <div class="role-title">Property Management</div>
           <p class="role-desc">Review incoming issues, assign workers, and monitor overall building health.</p>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="role-card">
-          <span class="role-icon">👷</span>
-          <div class="role-title">Field Worker</div>
+          <span class="role-icon"><i class="bi bi-person-standing"></i></span>
+          <div class="role-title">Maintenance Technician</div>
           <p class="role-desc">View assigned tasks, update job status, and upload proof-of-fix photos.</p>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="role-card">
-          <span class="role-icon">🛡️</span>
+          <span class="role-icon"><i class="bi bi-person-workspace"></i></span>
           <div class="role-title">Admin</div>
           <p class="role-desc">Full system access — manage users, settings, analytics, and reports.</p>
         </div>

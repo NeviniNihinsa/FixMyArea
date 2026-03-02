@@ -143,6 +143,16 @@ function stars(int $n): string {
     return $out;
 }
 
+function format_role(string $role): string {
+    return match(strtolower(trim($role))) {
+        'citizen'          => 'Tenant',
+        'worker'           => 'Maintenance Technician',
+        'authority'        => 'Property Manager',
+        'admin'            => 'Admin',
+        default            => $role
+    };
+}
+
 $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJECTED'];
 ?>
 <div class="app-container">
@@ -282,7 +292,7 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
               <?php foreach ($comments as $c): ?>
                 <div class="p-3" style="border:1px solid rgba(255,255,255,0.10); border-radius:12px;">
                   <div class="small text-muted mb-1">
-                    <?= h($c['user_name'] ?? 'User') ?> (<?= h($c['user_role'] ?? '-') ?>) • <?= h($c['created_at'] ?? '') ?>
+                    <?= h($c['user_name'] ?? 'User') ?> (<?= h(format_role($c['user_role'] ?? '-')) ?>) • <?= h($c['created_at'] ?? '') ?>
                   </div>
                   <div><?= nl2br(h($c['comment_text'] ?? '')) ?></div>
                 </div>
@@ -315,14 +325,14 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
                               </div>
                             </div>
                             <div class="col-12 col-sm-4">
-                              <div class="small text-muted">Field Worker</div>
+                              <div class="small text-muted">Maintenance Technician</div>
                               <div style="color:#ffd36b; font-size:1.1rem;">
                                 <?= stars((int)$fb['worker_rating']) ?>
                                 <span class="small text-muted">(<?= (int)$fb['worker_rating'] ?>/5)</span>
                               </div>
                             </div>
                             <div class="col-12 col-sm-4">
-                              <div class="small text-muted">Local Authority</div>
+                              <div class="small text-muted">Property Manager</div>
                               <div style="color:#ffd36b; font-size:1.1rem;">
                                 <?= stars((int)$fb['authority_rating']) ?>
                                 <span class="small text-muted">(<?= (int)$fb['authority_rating'] ?>/5)</span>
@@ -404,7 +414,7 @@ $allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJ
                     <span class="small text-muted"><?= h((string)$t['created_at']) ?></span>
                   </div>
                   <div class="small text-muted mt-2">
-                    By: <?= h((string)($t['by_name'] ?? 'System')) ?> (<?= h((string)($t['by_role'] ?? '-')) ?>)
+                    By: <?= h((string)($t['by_name'] ?? 'System')) ?> (<?= h(format_role((string)($t['by_role'] ?? '-'))) ?>)
                   </div>
                   <?php if (!empty($t['note'])): ?>
                     <div class="mt-2"><?= nl2br(h((string)$t['note'])) ?></div>

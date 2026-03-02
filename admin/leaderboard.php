@@ -142,9 +142,9 @@ function starRating(?float $rating): string {
 
 function medalBadge(int $rank): string {
   return match ($rank) {
-    1 => '<span class="fs-5" title="Gold">🥇</span>',
-    2 => '<span class="fs-5" title="Silver">🥈</span>',
-    3 => '<span class="fs-5" title="Bronze">🥉</span>',
+    1 => '<span class="fs-5" title="Gold"><i class="bi bi-1-circle-fill"></i></span>',
+    2 => '<span class="fs-5" title="Silver"><i class="bi bi-2-circle-fill"></i></span>',
+    3 => '<span class="fs-5" title="Bronze"><i class="bi bi-3-circle-fill"></i></span>',
     default => '<span class="text-muted fw-bold">#' . $rank . '</span>',
   };
 }
@@ -184,13 +184,13 @@ function medalBadge(int $rank): string {
   </div>
 
   <!-- ═══════════════════════════════════════════
-       SECTION 1: FIELD WORKERS
+       SECTION 1: Maintenance Technicians
   ════════════════════════════════════════════ -->
   <div class="card-dark p-3 p-md-4 mb-4">
     <div class="d-flex align-items-center gap-2 mb-3">
-      <span class="fs-4">🔧</span>
-      <h5 class="fw-bold mb-0">Top Field Workers</h5>
-      <span class="text-muted small ms-1">— ranked by completed jobs</span>
+      <span class="fs-4"><i class="bi bi-gear-wide-connected"></i></span>
+      <h5 class="fw-bold mb-0">Top Maintenance Technicians</h5>
+      <span class="text-muted small ms-1">: ranked by completed jobs</span>
     </div>
 
     <?php if (empty($workers)): ?>
@@ -203,8 +203,8 @@ function medalBadge(int $rank): string {
           <div class="col-12 col-md-4">
             <div class="card-dark p-3 text-center" style="border:1px solid rgba(241,246,246,0.13); border-radius:18px;">
               <div style="font-size:2.8rem; line-height:1; margin-bottom:6px;"><?= medalBadge($rank + 1) ?></div>
-              <div class="lb-avatar mx-auto mb-2" style="width:64px;height:64px;border-radius:50%;border:2px solid rgba(241,246,246,0.4);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);">
-                <i class="bi bi-person-fill" style="font-size:32px;color:rgba(241,246,246,0.7);"></i>
+              <div class="lb-avatar mx-auto mb-2" style="width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,145,76,0.35);display:flex;align-items:center;justify-content:center;background:rgba(255,173,82,0.12);">
+                <i class="bi bi-person-fill" style="font-size:32px;color:var(--accent-600);"></i>
               </div>
               <div class="fw-bold"><?= h($w['name']) ?></div>
               <div class="text-muted small"><?= h($w['email']) ?></div>
@@ -255,9 +255,9 @@ function medalBadge(int $rank): string {
   ════════════════════════════════════════════ -->
   <div class="card-dark p-3 p-md-4 mb-4">
     <div class="d-flex align-items-center gap-2 mb-3">
-      <span class="fs-4">🏛️</span>
-      <h5 class="fw-bold mb-0">Top Local Authorities</h5>
-      <span class="text-muted small ms-1">— ranked by issue actions taken</span>
+      <span class="fs-4"><i class="bi bi-building-fill"></i></span>
+      <h5 class="fw-bold mb-0">Top Property Managers</h5>
+      <span class="text-muted small ms-1">: ranked by issue actions taken</span>
     </div>
 
     <?php if (empty($authorities)): ?>
@@ -270,8 +270,8 @@ function medalBadge(int $rank): string {
           <div class="col-12 col-md-4">
             <div class="card-dark p-3 text-center" style="border:1px solid rgba(241,246,246,0.13); border-radius:18px;">
               <div style="font-size:2.8rem; line-height:1; margin-bottom:6px;"><?= medalBadge($rank + 1) ?></div>
-              <div class="lb-avatar mx-auto mb-2" style="width:64px;height:64px;border-radius:50%;border:2px solid rgba(241,246,246,0.4);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);">
-                <i class="bi bi-building" style="font-size:28px;color:rgba(241,246,246,0.7);"></i>
+              <div class="lb-avatar mx-auto mb-2" style="width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,145,76,0.35);display:flex;align-items:center;justify-content:center;background:rgba(255,173,82,0.12);">
+                <i class="bi bi-building" style="font-size:28px;color:var(--accent-600);"></i>
               </div>
               <div class="fw-bold"><?= h($auth['name']) ?></div>
               <div class="text-muted small"><?= h($auth['email']) ?></div>
@@ -322,9 +322,9 @@ function medalBadge(int $rank): string {
   ════════════════════════════════════════════ -->
   <div class="card-dark p-3 p-md-4 mb-4">
     <div class="d-flex align-items-center gap-2 mb-3">
-      <span class="fs-4">🏅</span>
-      <h5 class="fw-bold mb-0">Most Responsible Citizens</h5>
-      <span class="text-muted small ms-1">— ranked by reports filed &amp; community votes received</span>
+      <span class="fs-4"><i class="bi bi-person-fill"></i></span>
+      <h5 class="fw-bold mb-0">Most Responsible Tenants</h5>
+      <span class="text-muted small ms-1">: ranked by reports filed &amp; community votes received</span>
     </div>
 
     <?php if (empty($citizens)): ?>
@@ -337,8 +337,8 @@ function medalBadge(int $rank): string {
           <div class="col-12 col-md-4">
             <div class="card-dark p-3 text-center" style="border:1px solid rgba(241,246,246,0.13); border-radius:18px;">
               <div style="font-size:2.8rem; line-height:1; margin-bottom:6px;"><?= medalBadge($rank + 1) ?></div>
-              <div class="lb-avatar mx-auto mb-2" style="width:64px;height:64px;border-radius:50%;border:2px solid rgba(241,246,246,0.4);display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);">
-                <i class="bi bi-person-circle" style="font-size:32px;color:rgba(241,246,246,0.7);"></i>
+              <div class="lb-avatar mx-auto mb-2" style="width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,145,76,0.35);display:flex;align-items:center;justify-content:center;background:rgba(255,173,82,0.12);">
+                <i class="bi bi-person-circle" style="font-size:32px;color:var(--accent-600);"></i>
               </div>
               <div class="fw-bold"><?= h($cit['name']) ?></div>
               <div class="text-muted small"><?= h($cit['email']) ?></div>

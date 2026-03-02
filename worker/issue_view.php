@@ -241,7 +241,6 @@ function photoUrl(string $path): string {
             <input type="text" name="comment_text" class="form-control" placeholder="Add comment..." required maxlength="300">
             <button class="btn btn-brand" type="submit">Add Comment</button>
           </div>
-          <div class="text-muted small mt-1">If you don’t have `actions/comment_add.php` yet, tell me — I’ll generate it.</div>
         </form>
       </div>
 
@@ -276,4 +275,4 @@ function photoUrl(string $path): string {
 
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
