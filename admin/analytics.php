@@ -362,8 +362,8 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
         <?php else: ?>
           <canvas id="splitChart" height="220"></canvas>
           <div class="d-flex justify-content-center gap-4 mt-3 small text-muted">
-            <span><span class="badge bg-primary me-1">&nbsp;</span>Common Area (<?= $commonCount ?>)</span>
-            <span><span class="badge bg-secondary me-1">&nbsp;</span>Tenant Unit (<?= $unitCount ?>)</span>
+            <span><span class="me-1" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#ff914c;vertical-align:middle;"></span>Common Area (<?= $commonCount ?>)</span>
+            <span><span class="me-1" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#ffcc56;vertical-align:middle;"></span>Tenant Unit (<?= $unitCount ?>)</span>
           </div>
         <?php endif; ?>
       </div>
@@ -414,10 +414,9 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
   const caData    = <?= json_encode($caData) ?>;
   const splitData = [<?= $commonCount ?>, <?= $unitCount ?>];
 
-  const gridColor  = 'rgba(255,255,255,0.07)';
-  const tickColor  = 'rgba(255,255,255,0.45)';
-  const barColors  = ['#4e7cf6','#5ec76f','#f5a623','#e05c5c','#a78bfa','#38bdf8','#fb923c','#34d399'];
-
+  const gridColor  = 'rgba(255,145,76,0.12)';
+  const tickColor  = '#a07840';
+  const barColors  = ['#ff914c','#ffad52','#ffcc56','#f97316','#fb923c','#fbbf24','#d97706','#92400e'];
   function barOpts(horizontal = false) {
     return {
       responsive: true,
@@ -445,7 +444,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
   if (rEl) {
     new Chart(rEl, {
       type: 'bar',
-      data: { labels: rtLabels, datasets: [{ data: rtData, backgroundColor: '#4e7cf6' }] },
+      data: { labels: rtLabels, datasets: [{ data: rtData, backgroundColor: '#ff914c' }] },
       options: barOpts()
     });
   }
@@ -457,7 +456,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
       type: 'doughnut',
       data: {
         labels: ['Common Area', 'Tenant Unit'],
-        datasets: [{ data: splitData, backgroundColor: ['#4e7cf6', '#6b7280'], borderWidth: 2, borderColor: 'rgba(0,0,0,0.3)' }]
+        datasets: [{ data: splitData, backgroundColor: ['#ff914c', '#ffcc56'], borderWidth: 2, borderColor: 'rgba(0,0,0,0.3)' }]
       },
       options: {
         responsive: true,

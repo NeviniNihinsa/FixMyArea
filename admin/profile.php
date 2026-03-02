@@ -73,13 +73,13 @@ if ($areaId > 0) {
   .avatar-ring{
     width: 120px; height: 120px;
     border-radius: 50%;
-    border: 3px solid rgba(241,246,246,0.55);
+    border: 3px solid #ffae52;
     display:flex; align-items:center; justify-content:center;
     margin: 0 auto 10px auto;
   }
   .avatar-ring i{
     font-size: 56px;
-    color: rgba(241,246,246,0.55);
+    color: #ffad52;
   }
 </style>
 
