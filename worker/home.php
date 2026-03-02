@@ -335,3 +335,4 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>

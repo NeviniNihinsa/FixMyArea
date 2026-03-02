@@ -33,7 +33,7 @@ VALUES
  '$2b$10$mCje41Ggkue7Mp3hMLoQ8Oo02KayaV.by.5g8ISA2Qg5UXbmFN8Qy', 'active');
 
 -- Citizen@123 (Bambalapitiya)
-INSERT INTO users (user_id, name, email, nic, dob, phone, gender, address, area_id, role, password_hash, status)
+INSERT INTO users (user_id, name, email, nic, dob, phone, gender, address, area_id, role, password_hash, status)t satus
 VALUES
 (4, 'Citizen One', 'citizen@fixmyarea.lk', 'CIT001', '2002-02-02', '0773333333', 'female', 'Bambalapitiya', 3, 'citizen',
  '$2b$10$o86Ec1.G4fdc/b.MzSWylOTWMN56xdpoBpPI.HwORKZ9vLMcJl1X6', 'active');

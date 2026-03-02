@@ -31,7 +31,6 @@ function stars(?int $val): string {
   return '<span style="font-size:22px; line-height:1;">' . $out . '</span>';
 }
 function isAjaxRequest(): bool {
-  
   $hdr = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
   return $hdr === 'xmlhttprequest';
 }
@@ -42,13 +41,9 @@ function jsonOut(array $data, int $code = 200): void {
   exit;
 }
 
-
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
-/* -----------------------------
-   1) Authority area (must be assigned)
------------------------------- */
 $st = $pdo->prepare("SELECT area_id FROM users WHERE user_id=? LIMIT 1");
 $st->execute([$userId]);
 $myAreaId = (int)($st->fetchColumn() ?: 0);
@@ -72,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
 
   $postIssueId = (int)($_POST['issue_id'] ?? 0);
   $workerId    = (int)($_POST['field_worker_id'] ?? 0);
-  $ajax = isAjaxRequest();
+  $ajax        = isAjaxRequest();
 
   if ($postIssueId <= 0 || $workerId <= 0) {
     $msg = 'Invalid assignment request.';
@@ -83,7 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     exit;
   }
 
-  // Ensure issue belongs to authority area
   $st = $pdo->prepare("SELECT issue_id FROM issues WHERE issue_id=? AND area_id=? LIMIT 1");
   $st->execute([$postIssueId, $myAreaId]);
   $okIssue = $st->fetchColumn();
@@ -150,8 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     ");
     $st->execute([$workerId, $postIssueId]);
     $tmp = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-    $reporterId = (int)($tmp['reporter_user_id'] ?? 0);
-    $workerName = (string)($tmp['worker_name'] ?? 'Field Worker');
+    $reporterId  = (int)($tmp['reporter_user_id'] ?? 0);
+    $workerName  = (string)($tmp['worker_name'] ?? 'Field Worker');
     $workerEmail = (string)($tmp['worker_email'] ?? '');
 
     $ins = $pdo->prepare("
@@ -168,7 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     ");
     $upd->execute([$postIssueId, $myAreaId]);
 
-    // Notifications
     create_notification(
       $pdo,
       $workerId,
@@ -248,12 +241,11 @@ if (!$issue) {
   exit;
 }
 
-/* Upvotes */
 $st = $pdo->prepare("SELECT COUNT(*) FROM votes WHERE issue_id=?");
 $st->execute([$issueId]);
 $upvotes = (int)$st->fetchColumn();
 
-/* Report photos */
+/* REPORT photos */
 $st = $pdo->prepare("
   SELECT file_path
   FROM issue_photos
@@ -263,7 +255,16 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $reportPhotos = $st->fetchAll(PDO::FETCH_COLUMN);
 
-/* Comments */
+/* ✅ PROOF photos (photo_type='PROOF') */
+$st = $pdo->prepare("
+  SELECT file_path
+  FROM issue_photos
+  WHERE issue_id=? AND photo_type='PROOF'
+  ORDER BY photo_id DESC
+");
+$st->execute([$issueId]);
+$proofPhotos = $st->fetchAll(PDO::FETCH_COLUMN);
+
 $st = $pdo->prepare("
   SELECT c.comment_text, c.created_at, u.name
   FROM comments c
@@ -274,7 +275,6 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $comments = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* Field workers list (same area) */
 $st = $pdo->prepare("
   SELECT user_id, name, email
   FROM users
@@ -286,7 +286,6 @@ $st = $pdo->prepare("
 $st->execute([$myAreaId]);
 $fieldWorkers = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* Current active assignment */
 $st = $pdo->prepare("
   SELECT a.assignment_status, u.name AS worker_name, u.email AS worker_email
   FROM assignments a
@@ -299,7 +298,6 @@ $st = $pdo->prepare("
 $st->execute([$issueId]);
 $activeAssign = $st->fetch(PDO::FETCH_ASSOC);
 
-/* Ratings */
 $overall = $worker = $authority = null;
 try {
   $st = $pdo->prepare("
@@ -317,34 +315,23 @@ try {
   $authority = !empty($r['authority_avg']) ? (int)round((float)$r['authority_avg']) : null;
 } catch (Throwable $e) {}
 
-/* Status options */
 $allowedStatuses = ['PENDING','ASSIGNED','IN_PROGRESS','COMPLETED','CLOSED','REOPENED','REJECTED'];
 $currentStatus = (string)$issue['status'];
 
-/* -----------------------------
-   5) Render
------------------------------- */
+/* Timeline */
+$st = $pdo->prepare("
+  SELECT status, note, created_at
+  FROM issue_status_history
+  WHERE issue_id = ?
+  ORDER BY created_at ASC
+");
+$st->execute([$issueId]);
+$timeline = $st->fetchAll(PDO::FETCH_ASSOC);
+
 $page_title = 'View Issue - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 ?>
-
-<style>
-  .meta-row{display:flex;flex-wrap:wrap;gap:18px;align-items:center;}
-  .meta-row .meta{ color: var(--muted-400); font-size:0.95rem; }
-  .upvote-box{display:flex;align-items:center;gap:10px;justify-content:flex-end;min-width:150px;}
-  .tri{width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:22px solid rgba(255,173,82,0.6);}
-  .photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
-  .photo{width:100%;height:110px;border-radius:12px;border:1px solid var(--border);background:rgba(0,0,0,0.12);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  .photo img{width:100%;height:100%;object-fit:cover;display:block;}
-  .desc-box{border:1px solid var(--border);border-radius:14px;padding:12px;background:rgba(0,0,0,0.08);min-height:110px;}
-  .comment-box{min-height:160px;resize:vertical;}
-  .ratings-row{display:flex;justify-content:space-between;gap:12px;align-items:center;}
-  @media (max-width:768px){
-    .photo-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
-    .upvote-box{justify-content:flex-start;}
-  }
-</style>
 
 <div class="container py-4 app-container">
 
@@ -402,7 +389,6 @@ require_once __DIR__ . '/../includes/navbar.php';
           (<span id="assignedStatus"><?= h($activeAssign['assignment_status'] ?? 'ASSIGNED') ?></span>)
         </div>
 
-        
         <form id="assignForm" method="POST" class="d-flex flex-wrap gap-2 align-items-center">
           <input type="hidden" name="action" value="assign_worker">
           <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
@@ -437,16 +423,21 @@ require_once __DIR__ . '/../includes/navbar.php';
             $slice = array_slice($reportPhotos, 0, 3);
             $count = count($slice);
           ?>
+
           <?php if ($count === 0): ?>
             <?php for ($i=0; $i<3; $i++): ?>
-              <div class="photo text-muted small">No Photo</div>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
             <?php endfor; ?>
           <?php else: ?>
             <?php foreach ($slice as $p): ?>
               <div class="photo"><img src="<?= h(fileUrl((string)$p)) ?>" alt="Issue photo"></div>
             <?php endforeach; ?>
             <?php for ($i=$count; $i<3; $i++): ?>
-              <div class="photo text-muted small">No Photo</div>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
             <?php endfor; ?>
           <?php endif; ?>
         </div>
@@ -456,16 +447,37 @@ require_once __DIR__ . '/../includes/navbar.php';
         </div>
       </div>
 
+      <!-- ✅ FIXED: Proof of Fix shows photo_type = PROOF -->
       <div class="col-12 col-lg-5">
         <div class="fw-semibold mb-2">Proof of Fix:</div>
+
         <div class="photo-grid">
-          <?php for ($i=0; $i<3; $i++): ?>
-            <div class="photo text-muted small">Placeholder</div>
-          <?php endfor; ?>
+          <?php
+            $pslice = array_slice($proofPhotos, 0, 3);
+            $pcount = count($pslice);
+          ?>
+
+          <?php if ($pcount === 0): ?>
+            <?php for ($i=0; $i<3; $i++): ?>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
+            <?php endfor; ?>
+          <?php else: ?>
+            <?php foreach ($pslice as $p): ?>
+              <div class="photo"><img src="<?= h(fileUrl((string)$p)) ?>" alt="Proof photo"></div>
+            <?php endforeach; ?>
+            <?php for ($i=$pcount; $i<3; $i++): ?>
+              <div class="photo text-muted small ph-empty">
+                <i class="bi bi-card-image"></i>
+              </div>
+            <?php endfor; ?>
+          <?php endif; ?>
         </div>
-        <div class="text-muted small mt-2">
-          Proof images are handled by the field worker process (no upload from authority).
-        </div>
+
+        <?php if (empty($proofPhotos)): ?>
+          <div class="text-muted small mt-2">No proof photos uploaded yet.</div>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -487,6 +499,26 @@ require_once __DIR__ . '/../includes/navbar.php';
           <div><?= stars($authority) ?></div>
         </div>
       </div>
+    </div>
+
+    <div class="card-dark p-3 mb-3">
+      <div class="fw-semibold mb-2">Status Timeline</div>
+
+      <?php if (empty($timeline)): ?>
+        <div class="text-muted small">No history yet.</div>
+      <?php else: ?>
+        <ul class="mb-0">
+          <?php foreach ($timeline as $t): ?>
+            <li class="small mb-2">
+              <strong><?= h($t['status'] ?? '') ?></strong>
+              <span class="text-muted"> — <?= h($t['created_at'] ?? '') ?></span>
+              <?php if (!empty($t['note'])): ?>
+                <div class="text-muted"><?= h($t['note']) ?></div>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
     </div>
 
     <div class="fw-semibold mb-2">Comments</div>
@@ -520,6 +552,9 @@ require_once __DIR__ . '/../includes/navbar.php';
   </div>
 </div>
 
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
+
+<?php if (!empty($_GET['assigned']) && (int)$_GET['assigned'] === 1): ?>
 <script>
 (function(){
   const form = document.getElementById('assignForm');
@@ -536,11 +571,15 @@ require_once __DIR__ . '/../includes/navbar.php';
   const wEmail = document.getElementById('assignedWorkerEmail');
   const wStatus = document.getElementById('assignedStatus');
 
+  function esc(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
   function showFlash(type, msg){
     if (!flashArea) return;
     flashArea.innerHTML = `
-      <div class="alert alert-${type}">
-        ${String(msg).replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+      <div class="alert alert-${esc(type)}">
+        ${esc(msg)}
       </div>
     `;
     flashArea.scrollIntoView({behavior:'smooth', block:'start'});
@@ -556,12 +595,12 @@ require_once __DIR__ . '/../includes/navbar.php';
     if (!confirm('Assign this field worker to the issue?')) return;
 
     btn.disabled = true;
-spn.style.display = 'inline';
+    spn.style.display = 'inline';
+    sel.disabled = true;
 
-const fd = new FormData(form);
-fd.set('field_worker_id', sel.value); 
-
-sel.disabled = true; 
+    try {
+      const fd = new FormData(form);
+      fd.set('field_worker_id', sel.value);
 
       const res = await fetch(window.location.href, {
         method: 'POST',
@@ -569,10 +608,13 @@ sel.disabled = true;
         body: fd
       });
 
-      const data = await res.json();
+      let data = null;
+      try { data = await res.json(); } catch (e) {}
 
-      if (!data.ok) {
-        showFlash(data.type || 'danger', data.msg || 'Failed.');
+      if (!data || !data.ok) {
+        const msg = (data && data.msg) ? data.msg : 'Failed to assign (server error).';
+        showFlash((data && data.type) ? data.type : 'danger', msg);
+
         btn.disabled = false;
         sel.disabled = false;
         spn.style.display = 'none';
@@ -581,7 +623,6 @@ sel.disabled = true;
 
       showFlash(data.type || 'success', data.msg || 'Assigned.');
 
-      // Update assigned info UI
       if (data.worker) {
         currentBlock.style.display = '';
         wName.textContent = data.worker.name || 'Field Worker';
@@ -589,7 +630,6 @@ sel.disabled = true;
         wStatus.textContent = data.worker.status || 'ASSIGNED';
       }
 
-      // Lock the form after success
       btn.disabled = true;
       sel.disabled = true;
       spn.style.display = 'none';

@@ -12,6 +12,14 @@ require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
 /* Fetch latest issues with votes + comments */
+$sort = trim((string)($_GET['sort'] ?? 'recent'));
+
+$orderBy = match($sort) {
+    'upvotes'  => 'upvotes DESC',
+    'comments' => 'comments_count DESC',
+    default    => 'i.created_at DESC'
+};
+
 $sql = "
 SELECT 
     i.issue_id,
@@ -23,7 +31,7 @@ FROM issues i
 LEFT JOIN votes v ON v.issue_id = i.issue_id
 LEFT JOIN comments c ON c.issue_id = i.issue_id
 GROUP BY i.issue_id
-ORDER BY i.created_at DESC
+ORDER BY {$orderBy}
 LIMIT 50
 ";
 
@@ -38,7 +46,17 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold">Community</h2>
         <div class="d-flex align-items-center gap-3">
-    <div class="text-muted small">Sort: Recently Added</div>
+    
+<form method="GET" class="d-flex align-items-center gap-2 small">
+    <label class="text-muted mb-0">Sort:</label>
+    <select name="sort" class="form-select form-select-sm" style="width:auto;"
+            onchange="this.form.submit()">
+        <option value="recent"   <?= $sort === 'recent'   ? 'selected' : '' ?>>Recently Added</option>
+        <option value="upvotes"  <?= $sort === 'upvotes'  ? 'selected' : '' ?>>Most Upvoted</option>
+        <option value="comments" <?= $sort === 'comments' ? 'selected' : '' ?>>Most Commented</option>
+    </select>
+</form>
+
     <a href="<?= BASE_URL ?>/admin/leaderboard.php" class="btn btn-outline-brand btn-sm">
          View Leaderboard
     </a>
@@ -67,7 +85,7 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
                             <div class="text-muted small d-flex gap-4">
                                 <span>⬆ <?= (int)$issue['upvotes'] ?> upvotes</span>
-                                <span>💬 <?= (int)$issue['comments_count'] ?> comments</span>
+                                <span><i class="bi bi-chat-left-text-fill"></i> <?= (int)$issue['comments_count'] ?> comments</span>
                             </div>
                         </div>
 

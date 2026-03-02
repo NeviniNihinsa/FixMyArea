@@ -17,11 +17,9 @@ if ($userId <= 0) {
     exit;
 }
 
-// Flash
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
-// Fetch notifications
 $st = $pdo->prepare("
   SELECT notification_id, issue_id, notification_type, title, message, action_url,
          is_read, created_at
@@ -33,7 +31,6 @@ $st = $pdo->prepare("
 $st->execute([$userId]);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
-// Count unread
 $st = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0");
 $st->execute([$userId]);
 $unreadCount = (int)$st->fetchColumn();
@@ -85,7 +82,6 @@ function badgeClass(string $type): string {
   <?php else: ?>
 
     <div class="card-dark p-3 p-md-4">
-      <!-- Desktop table -->
       <div class="table-responsive d-none d-md-block">
         <table class="table table-dark-custom align-middle mb-0">
           <thead>
@@ -100,12 +96,9 @@ function badgeClass(string $type): string {
           <?php foreach ($rows as $n): ?>
             <?php
               $isRead = ((int)$n['is_read'] === 1);
-
-              $actionUrl = trim((string)($n['action_url'] ?? ''));
-              if ($actionUrl === '' && !empty($n['issue_id'])) {
-                  $actionUrl = BASE_URL . "/worker/view_issue.php?issue_id=" . (int)$n['issue_id'];
-              } elseif ($actionUrl !== '' && str_starts_with($actionUrl, '/')) {
-                  $actionUrl = BASE_URL . $actionUrl;
+              $actionUrl = '';
+              if (!empty($n['issue_id'])) {
+                  $actionUrl = BASE_URL . "/worker/issue_view.php?issue_id=" . (int)$n['issue_id'];
               }
             ?>
             <tr class="<?= $isRead ? '' : 'fw-semibold' ?>">
@@ -148,18 +141,16 @@ function badgeClass(string $type): string {
         </table>
       </div>
 
-      <!-- Mobile cards -->
       <div class="d-md-none">
         <div class="d-flex flex-column gap-3">
           <?php foreach ($rows as $n): ?>
             <?php
               $isRead = ((int)$n['is_read'] === 1);
 
-              $actionUrl = trim((string)($n['action_url'] ?? ''));
-              if ($actionUrl === '' && !empty($n['issue_id'])) {
+              
+              $actionUrl = '';
+              if (!empty($n['issue_id'])) {
                   $actionUrl = BASE_URL . "/worker/view_issue.php?issue_id=" . (int)$n['issue_id'];
-              } elseif ($actionUrl !== '' && str_starts_with($actionUrl, '/')) {
-                  $actionUrl = BASE_URL . $actionUrl;
               }
             ?>
             <div class="card-dark p-3">
@@ -203,4 +194,4 @@ function badgeClass(string $type): string {
 
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
