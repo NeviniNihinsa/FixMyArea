@@ -100,7 +100,7 @@ require_once __DIR__ . '/../includes/navbar.php';
           </select>
         </form>
 
-        <a class="btn btn-outline-brand"
+        <a class="btn btn-brand btn-sm"
            href="<?= BASE_URL ?>/authority/leaderboard.php">
           View Leaderboard
         </a>

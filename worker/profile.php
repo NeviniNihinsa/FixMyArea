@@ -11,6 +11,8 @@ $page_title = 'Profile - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
+if (session_status() === PHP_SESSION_NONE) session_start();
+
 $userId = (int)($_SESSION['user_id'] ?? 0);
 if ($userId <= 0) {
   header("Location: " . BASE_URL . "/auth/login.php");
@@ -37,158 +39,182 @@ if (!$user) {
   exit;
 }
 
-// Areas for dropdown
-$areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
+$branchName = '—';
+$areaId = (int)($user['area_id'] ?? 0);
+if ($areaId > 0) {
+  $st = $pdo->prepare("SELECT area_name FROM areas WHERE area_id=? LIMIT 1");
+  $st->execute([$areaId]);
+  $branchName = (string)($st->fetchColumn() ?: '—');
+}
 
-// helper
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+function pick(array $old, array $user, string $key): string {
+  if (array_key_exists($key, $old)) return (string)$old[$key];
+  return (string)($user[$key] ?? '');
+}
 
-// values
-$name    = (string)($old['name'] ?? $user['name'] ?? '');
+$name    = pick($old, $user, 'name');
 $email   = (string)($user['email'] ?? '');
 $nic     = (string)($user['nic'] ?? '');
-$dob     = (string)($old['dob'] ?? $user['dob'] ?? '');
-$phone   = (string)($old['phone'] ?? $user['phone'] ?? '');
-$gender  = (string)($old['gender'] ?? $user['gender'] ?? '');
-$address = (string)($old['address'] ?? $user['address'] ?? '');
-$areaId  = (int)($old['area_id'] ?? $user['area_id'] ?? 0);
+$dob     = pick($old, $user, 'dob');
+$phone   = pick($old, $user, 'phone');
+$gender  = strtolower(trim(pick($old, $user, 'gender')));
+$address = pick($old, $user, 'address');
 
-// used only for display
-$areaName = 'Not set';
-foreach ($areas as $a) {
-  if ((int)$a['area_id'] === (int)$user['area_id']) { $areaName = (string)$a['area_name']; break; }
-}
+$workerDisplayId = 'WORK' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT);
 ?>
 
-<style>
-  .profile-wrap{
-    max-width: 980px;
-    margin: 0 auto;
-  }
-  .avatar-circle{
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    border: 3px solid rgba(241,246,246,0.7);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    margin: 0 auto;
-  }
-  .avatar-circle i{ font-size: 54px; opacity: .85; }
-  .profile-label{ color: rgba(241,246,246,0.9); font-weight: 500; }
-  .profile-value{ color: rgba(241,246,246,0.95); }
-  .readonly-box{ background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
-</style>
+<div class="container py-4 app-container" style="max-width: 980px;">
 
-<div class="container py-4 app-container">
-  <div class="profile-wrap">
+  <?php if ($flash && is_array($flash)): ?>
+    <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
+  <?php endif; ?>
 
-    <?php if ($flash): ?>
-      <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
-    <?php endif; ?>
+  <?php if (!empty($errors['general'])): ?>
+    <div class="alert alert-danger"><?= h($errors['general']) ?></div>
+  <?php endif; ?>
 
-    <div class="card-dark p-4 p-md-5">
-      <div class="row g-4 align-items-start">
+  <div class="card-dark p-4 p-md-5">
 
-        <!-- LEFT details -->
-        <div class="col-12 col-lg-6">
-          <h2 class="fw-bold mb-2">Profile</h2>
-          <div class="text-muted mb-4">Role: <span class="fw-semibold">Field Worker</span></div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="fw-bold m-0">Profile</h2>
+    </div>
 
-          <form method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" novalidate>
-            <input type="hidden" name="role_redirect" value="worker">
+    <div class="d-flex justify-content-center mb-3">
+      <div class="rounded-circle d-flex align-items-center justify-content-center"
+           style="width:120px;height:120px;border:2px solid rgba(255,255,255,0.15);">
+        <i class="bi bi-person" style="font-size:56px;opacity:.75;"></i>
+      </div>
+    </div>
 
-            <!-- Full Name -->
-            <div class="mb-3">
-              <div class="profile-label mb-1">Full Name:</div>
-              <input type="text" name="name" class="form-control"
-                     value="<?= h($name) ?>" maxlength="150" required>
-              <div class="field-error"><?= h($errors['name'] ?? '') ?></div>
-            </div>
+    <div class="text-center text-muted small mb-4">
+      Field Worker ID: <?= h($workerDisplayId) ?>
+    </div>
 
-            <!-- Worker ID (display only) -->
-            <div class="mb-3">
-              <div class="profile-label mb-1">Field Worker ID</div>
-              <input type="text" class="form-control readonly-box" value="<?= 'WORK' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT) ?>" readonly>
-              <div class="text-muted small mt-1">This is a display ID (not stored separately).</div>
-            </div>
+    <form method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" id="profileForm" novalidate>
+      <input type="hidden" name="role_redirect" value="worker">
 
-            <!-- Assigned Area (settable from dropdown) -->
-            <div class="mb-3">
-              <div class="profile-label mb-1">Assigned Area</div>
-              <select name="area_id" class="form-select" required>
-                <option value="0">Select area</option>
-                <?php foreach ($areas as $a): ?>
-                  <option value="<?= (int)$a['area_id'] ?>" <?= ((int)$a['area_id'] === (int)$areaId) ? 'selected' : '' ?>>
-                    <?= h((string)$a['area_name']) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-              <div class="field-error"><?= h($errors['area_id'] ?? '') ?></div>
-            </div>
+      <div class="row g-3">
 
-            <!-- Email -->
-            <div class="mb-3">
-              <div class="profile-label mb-1">Email :</div>
-              <input type="text" class="form-control readonly-box" value="<?= h($email) ?>" readonly>
-            </div>
-
-            <!-- Address -->
-            <div class="mb-3">
-              <div class="profile-label mb-1">Address:</div>
-              <input type="text" name="address" class="form-control"
-                     value="<?= h($address) ?>" maxlength="255" required>
-              <div class="field-error"><?= h($errors['address'] ?? '') ?></div>
-            </div>
-
-            <!-- Phone -->
-            <div class="mb-3">
-              <div class="profile-label mb-1">Phone Number:</div>
-              <input type="text" name="phone" class="form-control"
-                     value="<?= h($phone) ?>" maxlength="20" required>
-              <div class="field-error"><?= h($errors['phone'] ?? '') ?></div>
-            </div>
-
-            <!-- Optional: DOB + Gender-->
-            <div class="row g-3">
-              <div class="col-12 col-md-6">
-                <div class="profile-label mb-1">Date of Birth:</div>
-                <input type="date" name="dob" class="form-control" value="<?= h($dob) ?>">
-                <div class="field-error"><?= h($errors['dob'] ?? '') ?></div>
-              </div>
-
-              <div class="col-12 col-md-6">
-                <div class="profile-label mb-1">Gender:</div>
-                <select name="gender" class="form-select">
-                  <option value="">Select</option>
-                  <option value="male"   <?= ($gender === 'male') ? 'selected' : '' ?>>Male</option>
-                  <option value="female" <?= ($gender === 'female') ? 'selected' : '' ?>>Female</option>
-                  <option value="other"  <?= ($gender === 'other') ? 'selected' : '' ?>>Other</option>
-                </select>
-                <div class="field-error"><?= h($errors['gender'] ?? '') ?></div>
-              </div>
-            </div>
-
-            <div class="d-flex justify-content-center justify-content-lg-end gap-3 mt-4">
-              <a class="btn btn-outline-light" href="<?= BASE_URL ?>/worker/home.php">Edit Profile</a>
-              <button class="btn btn-brand" type="submit">Save Changes</button>
-            </div>
-
-          </form>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Full Name</label>
+          <input class="form-control" name="name" value="<?= h($name) ?>" required maxlength="150" readonly>
+          <div class="field-error"><?= h($errors['name'] ?? '') ?></div>
         </div>
 
-        <!-- RIGHT avatar -->
-        <div class="col-12 col-lg-6 text-center">
-          <div class="avatar-circle mb-3">
-            <i class="bi bi-person"></i>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Email</label>
+          <input class="form-control" value="<?= h($email) ?>" readonly>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">NIC</label>
+          <input class="form-control" value="<?= h($nic) ?>" readonly>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Phone Number</label>
+          <input class="form-control" name="phone" value="<?= h($phone) ?>" maxlength="20" required readonly>
+          <div class="field-error"><?= h($errors['phone'] ?? '') ?></div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Date of Birth</label>
+          <input type="date" class="form-control" name="dob" value="<?= h($dob) ?>" readonly>
+          <div class="field-error"><?= h($errors['dob'] ?? '') ?></div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Gender</label>
+          <?php
+            $g = $gender;
+            $maleChecked   = ($g === 'male') ? 'checked' : '';
+            $femaleChecked = ($g === 'female') ? 'checked' : '';
+            $otherChecked  = ($g === 'other') ? 'checked' : '';
+            if ($g !== 'male' && $g !== 'female' && $g !== 'other') $otherChecked = 'checked';
+          ?>
+          <div class="d-flex gap-3 align-items-center flex-wrap">
+            <label class="d-flex gap-2 align-items-center m-0">
+              <input type="radio" name="gender" value="male" <?= $maleChecked ?> disabled>
+              <span>Male</span>
+            </label>
+            <label class="d-flex gap-2 align-items-center m-0">
+              <input type="radio" name="gender" value="female" <?= $femaleChecked ?> disabled>
+              <span>Female</span>
+            </label>
+            <label class="d-flex gap-2 align-items-center m-0">
+              <input type="radio" name="gender" value="other" <?= $otherChecked ?> disabled>
+              <span>Other</span>
+            </label>
           </div>
+          <div class="field-error"><?= h($errors['gender'] ?? '') ?></div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Assigned Branch</label>
+          <input class="form-control" value="<?= h($branchName) ?>" readonly>
+          <div class="text-muted small mt-1">Branch is assigned & managed by the Authority</div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label">Address</label>
+          <input class="form-control" name="address" value="<?= h($address) ?>" maxlength="255" required readonly>
+          <div class="field-error"><?= h($errors['address'] ?? '') ?></div>
         </div>
 
       </div>
-    </div>
+
+      <div class="d-flex justify-content-center gap-2 mt-4 flex-wrap">
+        <button type="button" class="btn btn-outline-brand" id="btnEdit">Edit Profile</button>
+        <button type="submit" class="btn btn-brand" id="btnSave" style="display:none;">Save Changes</button>
+        <button type="button" class="btn btn-outline-brand" id="btnCancel" style="display:none;">Cancel</button>
+      </div>
+    </form>
 
   </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
+<script>
+(() => {
+  const form = document.getElementById('profileForm');
+  const btnEdit = document.getElementById('btnEdit');
+  const btnSave = document.getElementById('btnSave');
+  const btnCancel = document.getElementById('btnCancel');
+
+  const editable = ['name','phone','dob','address'];
+
+  function setMode(viewMode) {
+    editable.forEach(n => {
+      const el = form.querySelector(`[name="${n}"]`);
+      if (!el) return;
+      if (viewMode) el.setAttribute('readonly','readonly');
+      else el.removeAttribute('readonly');
+    });
+
+    form.querySelectorAll('input[name="gender"]').forEach(r => r.disabled = viewMode);
+
+    btnSave.style.display   = viewMode ? 'none' : 'inline-block';
+    btnCancel.style.display = viewMode ? 'none' : 'inline-block';
+    btnEdit.style.display   = viewMode ? 'inline-block' : 'none';
+  }
+
+  setMode(true);
+
+  btnEdit.addEventListener('click', () => setMode(false));
+
+  btnCancel.addEventListener('click', () => window.location.reload());
+
+  form.addEventListener('submit', (e) => {
+    const name = (form.querySelector('[name="name"]').value || '').trim();
+    const phone = (form.querySelector('[name="phone"]').value || '').trim();
+    const address = (form.querySelector('[name="address"]').value || '').trim();
+
+    if (name.length < 2 || phone.length < 7 || address.length < 2) {
+      e.preventDefault();
+      alert("Please fill required fields (Name, Phone, Address).");
+    }
+  });
+})();
+</script>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
