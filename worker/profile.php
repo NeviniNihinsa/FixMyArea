@@ -7,170 +7,203 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['worker']);
 
-$page_title = 'Profile - FixMyArea';
-require_once __DIR__ . '/../includes/header.php';
-require_once __DIR__ . '/../includes/navbar.php';
-
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-$userId = (int)($_SESSION['user_id'] ?? 0);
-if ($userId <= 0) {
+$page_title = 'Leaderboard - FixMyArea';
+
+$meId = (int)($_SESSION['user_id'] ?? 0);
+if ($meId <= 0) {
   header("Location: " . BASE_URL . "/auth/login.php");
   exit;
 }
 
-$flash  = $_SESSION['flash'] ?? null;
-$errors = $_SESSION['form_errors'] ?? [];
-$old    = $_SESSION['old'] ?? [];
-unset($_SESSION['flash'], $_SESSION['form_errors'], $_SESSION['old']);
-
+/* Get worker area */
 $st = $pdo->prepare("
-  SELECT user_id, name, email, nic, dob, phone, gender, address, area_id, role
-  FROM users
-  WHERE user_id=?
+  SELECT u.area_id, a.area_name
+  FROM users u
+  LEFT JOIN areas a ON a.area_id = u.area_id
+  WHERE u.user_id = ?
   LIMIT 1
 ");
-$st->execute([$userId]);
-$user = $st->fetch(PDO::FETCH_ASSOC);
+$st->execute([$meId]);
+$me = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 
-if (!$user) {
-  $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'User not found.'];
-  header("Location: " . BASE_URL . "/auth/login.php");
+$areaId   = (int)($me['area_id'] ?? 0);
+$areaName = (string)($me['area_name'] ?? 'Designated Area');
+
+if ($areaId <= 0) {
+  http_response_code(403);
+  echo "<div class='container py-4 app-container'>
+          <div class='alert alert-warning'>
+            Your account is not assigned to an area yet.
+          </div>
+        </div>";
   exit;
 }
 
-$branchName = '—';
-$areaId = (int)($user['area_id'] ?? 0);
-if ($areaId > 0) {
-  $st = $pdo->prepare("SELECT area_name FROM areas WHERE area_id=? LIMIT 1");
-  $st->execute([$areaId]);
-  $branchName = (string)($st->fetchColumn() ?: '—');
+/* 1) Top Field Worker (by completed issues in this area) */
+$topWorker = null;
+$sqlWorker = "
+SELECT
+  u.user_id, u.name,
+  COUNT(*) AS completed_jobs
+FROM assignments a
+JOIN issues i ON i.issue_id = a.issue_id
+JOIN users u ON u.user_id = a.field_worker_id
+WHERE i.area_id = ?
+  AND UPPER(TRIM(i.status)) = 'COMPLETED'
+GROUP BY u.user_id, u.name
+ORDER BY completed_jobs DESC
+LIMIT 1
+";
+$st = $pdo->prepare($sqlWorker);
+$st->execute([$areaId]);
+$topWorker = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+
+/* 2) Top Local Authority (most status updates in this area) */
+$topAuthority = null;
+$sqlAuth = "
+SELECT
+  u.user_id, u.name,
+  COUNT(*) AS actions_count
+FROM issue_status_history h
+JOIN issues i ON i.issue_id = h.issue_id
+JOIN users u ON u.user_id = h.changed_by_user_id
+WHERE i.area_id = ?
+  AND TRIM(LOWER(u.role)) IN ('authority','local authority')
+GROUP BY u.user_id, u.name
+ORDER BY actions_count DESC
+LIMIT 1
+";
+$st = $pdo->prepare($sqlAuth);
+$st->execute([$areaId]);
+$topAuthority = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+
+/* 3) Most Responsible Citizen (most reports in this area) */
+$topCitizen = null;
+$sqlCitizen = "
+SELECT
+  u.user_id, u.name,
+  COUNT(*) AS reports_count
+FROM issues i
+JOIN users u ON u.user_id = i.reporter_user_id
+WHERE i.area_id = ?
+  AND TRIM(LOWER(u.role)) = 'citizen'
+GROUP BY u.user_id, u.name
+ORDER BY reports_count DESC
+LIMIT 1
+";
+$st = $pdo->prepare($sqlCitizen);
+$st->execute([$areaId]);
+$topCitizen = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+
+/* Helpers */
+function safeName(?array $row): string {
+  return (!empty($row['name'])) ? (string)$row['name'] : '—';
+}
+function safeMetric(?array $row, string $key): string {
+  return (isset($row[$key])) ? (string)$row[$key] : '0';
 }
 
-function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
-function pick(array $old, array $user, string $key): string {
-  if (array_key_exists($key, $old)) return (string)$old[$key];
-  return (string)($user[$key] ?? '');
-}
-
-$name    = pick($old, $user, 'name');
-$email   = (string)($user['email'] ?? '');
-$nic     = (string)($user['nic'] ?? '');
-$dob     = pick($old, $user, 'dob');
-$phone   = pick($old, $user, 'phone');
-$gender  = strtolower(trim(pick($old, $user, 'gender')));
-$address = pick($old, $user, 'address');
-
-$workerDisplayId = 'WORK' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT);
+require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/navbar.php';
 ?>
 
-<div class="container py-4 app-container" style="max-width: 980px;">
+<style>
+.lb-card{
+  border-radius: 22px;
+  border: 1px solid rgba(241,246,246,0.18);
+  padding: 28px 18px;
+  text-align:center;
+  min-height: 260px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap: 10px;
+}
+.lb-avatar{
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: 3px solid rgba(241,246,246,0.75);
+  margin: 0 auto 6px auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,0.03);
+}
+.lb-avatar i{
+  font-size: 48px;
+  color: rgba(241,246,246,0.75);
+}
+.lb-title{
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.lb-name{
+  font-weight: 700;
+  font-size: 1.08rem;
+}
+.lb-metric{
+  color: var(--text-300);
+  font-size: 0.9rem;
+}
+</style>
 
-  <?php if ($flash && is_array($flash)): ?>
-    <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
-  <?php endif; ?>
+<div class="container py-4">
 
-  <?php if (!empty($errors['general'])): ?>
-    <div class="alert alert-danger"><?= h($errors['general']) ?></div>
-  <?php endif; ?>
+  <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3 mb-4">
+    <h2 class="fw-bold mb-0">Leaderboard</h2>
 
-  <div class="card-dark p-4 p-md-5">
-
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h2 class="fw-bold m-0">Profile</h2>
+    <div class="d-flex align-items-center gap-2">
+      <label class="text-muted mb-0">Area:</label>
+      <input class="form-control" value="<?= htmlspecialchars($areaName) ?>" readonly style="min-width:240px;">
     </div>
+  </div>
 
-    <div class="d-flex justify-content-center mb-3">
-      <div class="rounded-circle d-flex align-items-center justify-content-center"
-           style="width:120px;height:120px;border:2px solid rgba(255,255,255,0.15);">
-        <i class="bi bi-person" style="font-size:56px;opacity:.75;"></i>
+  <div class="text-muted mb-4">
+    Showing results for: <span class="fw-semibold"><?= htmlspecialchars($areaName) ?></span>
+  </div>
+
+  <div class="row g-4 justify-content-center">
+
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="card-dark lb-card">
+        <div class="lb-avatar"><i class="bi bi-person-circle"></i></div>
+        <div class="lb-title">Top performing Field Worker of the Month</div>
+        <div class="lb-name"><?= htmlspecialchars(safeName($topWorker)) ?></div>
+        <div class="lb-metric">
+          Completed jobs: <?= htmlspecialchars(safeMetric($topWorker, 'completed_jobs')) ?>
+        </div>
       </div>
     </div>
 
-    <div class="text-center text-muted small mb-4">
-      Field Worker ID: <?= h($workerDisplayId) ?>
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="card-dark lb-card">
+        <div class="lb-avatar"><i class="bi bi-person-circle"></i></div>
+        <div class="lb-title">Top performing local authority of the Month</div>
+        <div class="lb-name"><?= htmlspecialchars(safeName($topAuthority)) ?></div>
+        <div class="lb-metric">
+          Actions: <?= htmlspecialchars(safeMetric($topAuthority, 'actions_count')) ?>
+        </div>
+      </div>
     </div>
 
-    <form method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" id="profileForm" novalidate>
-      <input type="hidden" name="role_redirect" value="worker">
-
-      <div class="row g-3">
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">Full Name</label>
-          <input class="form-control" name="name" value="<?= h($name) ?>" required maxlength="150" readonly>
-          <div class="field-error"><?= h($errors['name'] ?? '') ?></div>
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="card-dark lb-card">
+        <div class="lb-avatar"><i class="bi bi-person-circle"></i></div>
+        <div class="lb-title">Most Responsible citizen</div>
+        <div class="lb-name"><?= htmlspecialchars(safeName($topCitizen)) ?></div>
+        <div class="lb-metric">
+          Reports: <?= htmlspecialchars(safeMetric($topCitizen, 'reports_count')) ?>
         </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">Email</label>
-          <input class="form-control" value="<?= h($email) ?>" readonly>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">NIC</label>
-          <input class="form-control" value="<?= h($nic) ?>" readonly>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">Phone Number</label>
-          <input class="form-control" name="phone" value="<?= h($phone) ?>" maxlength="20" required readonly>
-          <div class="field-error"><?= h($errors['phone'] ?? '') ?></div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">Date of Birth</label>
-          <input type="date" class="form-control" name="dob" value="<?= h($dob) ?>" readonly>
-          <div class="field-error"><?= h($errors['dob'] ?? '') ?></div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">Gender</label>
-          <?php
-            $g = $gender;
-            $maleChecked   = ($g === 'male') ? 'checked' : '';
-            $femaleChecked = ($g === 'female') ? 'checked' : '';
-            $otherChecked  = ($g === 'other') ? 'checked' : '';
-            if ($g !== 'male' && $g !== 'female' && $g !== 'other') $otherChecked = 'checked';
-          ?>
-          <div class="d-flex gap-3 align-items-center flex-wrap">
-            <label class="d-flex gap-2 align-items-center m-0">
-              <input type="radio" name="gender" value="male" <?= $maleChecked ?> disabled>
-              <span>Male</span>
-            </label>
-            <label class="d-flex gap-2 align-items-center m-0">
-              <input type="radio" name="gender" value="female" <?= $femaleChecked ?> disabled>
-              <span>Female</span>
-            </label>
-            <label class="d-flex gap-2 align-items-center m-0">
-              <input type="radio" name="gender" value="other" <?= $otherChecked ?> disabled>
-              <span>Other</span>
-            </label>
-          </div>
-          <div class="field-error"><?= h($errors['gender'] ?? '') ?></div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">Assigned Branch</label>
-          <input class="form-control" value="<?= h($branchName) ?>" readonly>
-          <div class="text-muted small mt-1">Branch is assigned & managed by the Authority</div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label">Address</label>
-          <input class="form-control" name="address" value="<?= h($address) ?>" maxlength="255" required readonly>
-          <div class="field-error"><?= h($errors['address'] ?? '') ?></div>
-        </div>
-
       </div>
+    </div>
 
-      <div class="d-flex justify-content-center gap-2 mt-4 flex-wrap">
-        <button type="button" class="btn btn-outline-brand" id="btnEdit">Edit Profile</button>
-        <button type="submit" class="btn btn-brand" id="btnSave" style="display:none;">Save Changes</button>
-        <button type="button" class="btn btn-outline-brand" id="btnCancel" style="display:none;">Cancel</button>
-      </div>
-    </form>
+  </div>
 
+  <div class="mt-4">
+    <a class="btn btn-outline-light" href="<?= BASE_URL ?>/worker/community.php">← Back to Community</a>
   </div>
 </div>
 
