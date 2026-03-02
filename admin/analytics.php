@@ -7,9 +7,11 @@ require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['admin']);
 
-$page_title = 'Analytics & Reports - Fixly';
+$page_title = 'Analytics & Reports - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
+
+function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 $areaId   = (int)($_GET['area_id'] ?? 0);
 $fromDate = trim((string)($_GET['from_date'] ?? ''));
@@ -86,7 +88,7 @@ JOIN (
   GROUP BY issue_id
 ) h ON h.issue_id = i.issue_id
 {$whereSql}
-AND i.status IN ('COMPLETED','CLOSED')
+" . ($whereSql ? " AND " : " WHERE ") . " i.status IN ('COMPLETED','CLOSED')
 ";
 $st = $pdo->prepare($sqlAvg);
 $st->execute($params);
@@ -127,7 +129,7 @@ JOIN (
   GROUP BY issue_id
 ) h ON h.issue_id = i.issue_id
 {$whereSql}
-AND i.status IN ('COMPLETED','CLOSED')
+" . ($whereSql ? " AND " : " WHERE ") . " i.status IN ('COMPLETED','CLOSED')
 ";
 $st = $pdo->prepare($sqlResTimes);
 $st->execute($params);
@@ -177,6 +179,8 @@ $caData         = array_map(fn($r) => (int)$r['c'], $byCommonArea);
 
 /** CSV Download */
 $download = (string)($_GET['download'] ?? '');
+
+// 1) CSV download (raw data)
 if ($download === 'csv') {
   header('Content-Type: text/csv; charset=utf-8');
   header('Content-Disposition: attachment; filename="analytics_report.csv"');
@@ -221,7 +225,193 @@ if ($download === 'csv') {
   exit;
 }
 
-function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+// 2) Printable “PDF-style” HTML download (sections + page breaks)
+if ($download === 'print') {
+  // Standalone print HTML
+  header('Content-Type: text/html; charset=utf-8');
+  ?>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FixMyArea - Analytics Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* Print-friendly report styling */
+    :root{
+      --ink:#111;
+      --muted:#555;
+      --line:#ddd;
+    }
+    body{
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      margin: 24px;
+    }
+    .report-header{
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }
+    .title{
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .meta{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    h2{
+      font-size: 16px;
+      margin: 18px 0 8px;
+    }
+    p{
+      margin: 6px 0 10px;
+      color: var(--ink);
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    .kpi-grid{
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .kpi{
+      border: 1px solid var(--line);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .kpi .label{ color: var(--muted); font-size: 12px; }
+    .kpi .value{ font-size: 18px; font-weight: 700; margin-top: 6px; }
+    table{
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+    th, td{
+      border: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+    }
+    th{ background: #f5f5f5; }
+    .small{ font-size: 12px; color: var(--muted); }
+    .page-break{
+      page-break-after: always;
+      break-after: page;
+    }
+
+    @media print{
+      body{ margin: 14mm; }
+      .no-print{ display:none !important; }
+      .kpi-grid{ grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="no-print" style="margin-bottom:14px;">
+    <button onclick="window.print()">Print / Save as PDF</button>
+  </div>
+
+  <div class="report-header">
+    <p class="title">FixMyArea Analytics & Reports</p>
+    <div class="meta">
+      <div><strong>Area:</strong> <?= h($areaName) ?></div>
+      <div><strong>Period:</strong> <?= h($periodText) ?></div>
+      <div><strong>Generated at:</strong> <?= h(date('Y-m-d H:i:s')) ?></div>
+    </div>
+  </div>
+
+  <h2>1. Executive Summary</h2>
+  <p>
+    During the selected period, the system recorded <strong><?= (int)$totalIssues ?></strong> issues.
+    Out of these, <strong><?= (int)$resolvedIssues ?></strong> were resolved
+    (<strong><?= h((string)$resolvedRate) ?>%</strong> resolution rate).
+    The average resolution time was <strong><?= h((string)$avgResolution) ?></strong> days.
+    The most reported category was <strong><?= h($topCategoryText) ?></strong>.
+  </p>
+
+  <h2>2. Key Performance Indicators (KPIs)</h2>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="label">Total Issues</div>
+      <div class="value"><?= (int)$totalIssues ?></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Resolved Issues</div>
+      <div class="value"><?= (int)$resolvedIssues ?></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Resolved Rate</div>
+      <div class="value"><?= h((string)$resolvedRate) ?>%</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Avg Resolution Time</div>
+      <div class="value"><?= h((string)$avgResolution) ?> days</div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>3. Issue Distribution by Category</h2>
+  <?php if (empty($byCategory)): ?>
+    <p class="small">No category data available for the selected filter.</p>
+  <?php else: ?>
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Count</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($byCategory as $row): ?>
+          <tr>
+            <td><?= h($row['label']) ?></td>
+            <td><?= (int)$row['c'] ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+
+  <h2>4. Resolution Time Analysis</h2>
+  <?php if (empty($resTimes)): ?>
+    <p class="small">No resolved issues found for the selected filter.</p>
+  <?php else: ?>
+    <table>
+      <thead>
+        <tr><th>Time Range</th><th>Resolved Count</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($buckets as $range => $count): ?>
+          <tr>
+            <td><?= h($range) ?></td>
+            <td><?= (int)$count ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+
+  <div class="page-break"></div>
+
+  <h2>5. Notes / Limitations</h2>
+  <p>
+    - Resolution time is calculated from issue creation to the latest status change marked COMPLETED/CLOSED.<br>
+    - Filters (Area and Date range) apply to issue creation time.<br>
+    - This report is intended for academic demonstration and system monitoring.
+  </p>
+
+</body>
+</html>
+  <?php
+  exit;
+}
+
+// ---------- NORMAL PAGE UI (Dashboard view) ----------
 ?>
 
 <div class="container py-4">
@@ -439,7 +629,6 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     });
   }
 
-  // Resolution time chart
   const rEl = document.getElementById('rtChart');
   if (rEl) {
     new Chart(rEl, {
@@ -481,4 +670,4 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
 })();
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
