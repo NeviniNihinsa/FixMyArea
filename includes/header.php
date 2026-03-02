@@ -28,11 +28,13 @@ $page_title = $page_title ?? 'FixMyArea';
   <!-- Theme CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/public/assets/css/theme.css">
 
-  <style>
+<style>
     body { font-family: "Poppins", sans-serif; }
     .field-error { color: #ff6b6b; font-size: 0.9rem; min-height: 20px; margin-top: 6px; }
-    .brand-logo { height: 34px; width: auto; }
-  </style>
+    .brand-logo { height: 56px; width: auto; }
+    /* Navbar override for new theme */
+    .navbar-dark .navbar-toggler-icon { filter: brightness(0.9) sepia(1) saturate(3) hue-rotate(5deg); }
+</style>
 </head>
 
 <body class="d-flex flex-column min-vh-100">

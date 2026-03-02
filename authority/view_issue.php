@@ -308,7 +308,7 @@ require_once __DIR__ . '/../includes/navbar.php';
   .meta-row{display:flex;flex-wrap:wrap;gap:18px;align-items:center;}
   .meta-row .meta{ color: var(--muted-400); font-size:0.95rem; }
   .upvote-box{display:flex;align-items:center;gap:10px;justify-content:flex-end;min-width:150px;}
-  .tri{width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:22px solid rgba(241,246,246,0.6);}
+  .tri{width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:22px solid rgba(255,173,82,0.6);}
   .photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
   .photo{width:100%;height:110px;border-radius:12px;border:1px solid var(--border);background:rgba(0,0,0,0.12);overflow:hidden;display:flex;align-items:center;justify-content:center;}
   .photo img{width:100%;height:100%;object-fit:cover;display:block;}
