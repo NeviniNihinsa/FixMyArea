@@ -191,3 +191,4 @@ foreach ($areas as $a) {
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
