@@ -5,7 +5,9 @@ require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
-require_roles(['worker']);
+require_roles(['authority','local authority']);
+
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 $page_title = 'Notifications - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
@@ -13,13 +15,15 @@ require_once __DIR__ . '/../includes/navbar.php';
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
 if ($userId <= 0) {
-    header("Location: " . BASE_URL . "/auth/login.php");
-    exit;
+  header("Location: " . BASE_URL . "/auth/login.php");
+  exit;
 }
 
+// Flash
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
+// Fetch notifications
 $st = $pdo->prepare("
   SELECT notification_id, issue_id, notification_type, title, message, action_url,
          is_read, created_at
@@ -31,6 +35,7 @@ $st = $pdo->prepare("
 $st->execute([$userId]);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
+// Count unread
 $st = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0");
 $st->execute([$userId]);
 $unreadCount = (int)$st->fetchColumn();
@@ -38,15 +43,29 @@ $unreadCount = (int)$st->fetchColumn();
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 function badgeClass(string $type): string {
-    $t = strtoupper(trim($type));
-    return match ($t) {
-        'NEW_ISSUE' => 'bg-info',
-        'STATUS' => 'bg-warning text-dark',
-        'ASSIGNMENT' => 'bg-primary',
-        'COMMENT' => 'bg-secondary',
-        'FEEDBACK_REQUEST' => 'bg-success',
-        default => 'bg-dark'
-    };
+  $t = strtoupper(trim($type));
+  return match ($t) {
+    'NEW_ISSUE' => 'bg-info',
+    'STATUS' => 'bg-warning text-dark',
+    'ASSIGNMENT' => 'bg-primary',
+    'COMMENT' => 'bg-secondary',
+    'FEEDBACK_REQUEST' => 'bg-success',
+    default => 'bg-dark'
+  };
+}
+function authorityOpenUrl(array $n): string {
+  $issueId = (int)($n['issue_id'] ?? 0);
+  if ($issueId > 0) {
+    return BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId;
+  }
+
+  $actionUrl = trim((string)($n['action_url'] ?? ''));
+  if ($actionUrl === '') return '';
+
+  if (str_starts_with($actionUrl, 'http://') || str_starts_with($actionUrl, 'https://')) return $actionUrl;
+  if (str_starts_with($actionUrl, '/')) return BASE_URL . $actionUrl;
+
+  return BASE_URL . '/' . ltrim($actionUrl, '/');
 }
 ?>
 
@@ -55,19 +74,17 @@ function badgeClass(string $type): string {
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
     <div>
       <h2 class="fw-bold mb-1">Notifications</h2>
-      <div class="text-muted small">Unread: <span class="fw-semibold"><?= $unreadCount ?></span></div>
+      <div class="text-muted small">Unread: <span class="fw-semibold"><?= (int)$unreadCount ?></span></div>
     </div>
 
     <div class="d-flex gap-2">
       <?php if ($unreadCount > 0): ?>
         <form method="POST" action="<?= BASE_URL ?>/actions/notification_mark_read.php" class="m-0">
           <input type="hidden" name="mode" value="all">
-          <button class="btn btn-outline-brand btn-sm" type="submit">
-            Mark all as read
-          </button>
+          <button class="btn btn-outline-brand btn-sm" type="submit">Mark all as read</button>
         </form>
       <?php endif; ?>
-      <a class="btn btn-brand btn-sm" href="<?= BASE_URL ?>/worker/home.php">Back to Home</a>
+      <a class="btn btn-brand btn-sm" href="<?= BASE_URL ?>/authority/home.php">Back to Home</a>
     </div>
   </div>
 
@@ -82,6 +99,7 @@ function badgeClass(string $type): string {
   <?php else: ?>
 
     <div class="card-dark p-3 p-md-4">
+      <!-- Desktop table -->
       <div class="table-responsive d-none d-md-block">
         <table class="table table-dark-custom align-middle mb-0">
           <thead>
@@ -96,10 +114,7 @@ function badgeClass(string $type): string {
           <?php foreach ($rows as $n): ?>
             <?php
               $isRead = ((int)$n['is_read'] === 1);
-              $actionUrl = '';
-              if (!empty($n['issue_id'])) {
-                  $actionUrl = BASE_URL . "/worker/issue_view.php?issue_id=" . (int)$n['issue_id'];
-              }
+              $openUrl = authorityOpenUrl($n);
             ?>
             <tr class="<?= $isRead ? '' : 'fw-semibold' ?>">
               <td>
@@ -120,8 +135,8 @@ function badgeClass(string $type): string {
 
               <td>
                 <div class="d-flex flex-wrap gap-2">
-                  <?php if ($actionUrl !== ''): ?>
-                    <a class="btn btn-sm btn-outline-brand" href="<?= h($actionUrl) ?>">Open</a>
+                  <?php if ($openUrl !== ''): ?>
+                    <a class="btn btn-sm btn-outline-brand" href="<?= h($openUrl) ?>">Open</a>
                   <?php endif; ?>
 
                   <?php if (!$isRead): ?>
@@ -141,17 +156,13 @@ function badgeClass(string $type): string {
         </table>
       </div>
 
+      <!-- Mobile cards -->
       <div class="d-md-none">
         <div class="d-flex flex-column gap-3">
           <?php foreach ($rows as $n): ?>
             <?php
               $isRead = ((int)$n['is_read'] === 1);
-
-              
-              $actionUrl = '';
-              if (!empty($n['issue_id'])) {
-                  $actionUrl = BASE_URL . "/worker/view_issue.php?issue_id=" . (int)$n['issue_id'];
-              }
+              $openUrl = authorityOpenUrl($n);
             ?>
             <div class="card-dark p-3">
               <div class="d-flex justify-content-between align-items-start gap-2">
@@ -170,8 +181,8 @@ function badgeClass(string $type): string {
               <div class="text-muted small mt-1"><?= h((string)$n['message']) ?></div>
 
               <div class="mt-3 d-flex flex-wrap gap-2">
-                <?php if ($actionUrl !== ''): ?>
-                  <a class="btn btn-sm btn-outline-brand" href="<?= h($actionUrl) ?>">Open</a>
+                <?php if ($openUrl !== ''): ?>
+                  <a class="btn btn-sm btn-outline-brand" href="<?= h($openUrl) ?>">Open</a>
                 <?php endif; ?>
 
                 <?php if (!$isRead): ?>

@@ -6,10 +6,17 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 
 require_roles(['citizen']);
+
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 $userId  = (int)($_SESSION['user_id'] ?? 0);
 $issueId = (int)($_POST['issue_id'] ?? 0);
+
+if ($userId <= 0) {
+    $_SESSION['flash_error'] = "Please login again.";
+    header("Location: " . BASE_URL . "/auth/login.php");
+    exit;
+}
 
 if ($issueId <= 0) {
     $_SESSION['flash_error'] = "Invalid issue.";
@@ -17,13 +24,31 @@ if ($issueId <= 0) {
     exit;
 }
 
-//Check existing vote
+/* ✅ Block voting on private issues (only allow common) */
+$st = $pdo->prepare("SELECT is_common FROM issues WHERE issue_id = ? LIMIT 1");
+$st->execute([$issueId]);
+$isCommonVal = $st->fetchColumn();
+
+if ($isCommonVal === false) {
+    $_SESSION['flash_error'] = "Issue not found.";
+    header("Location: " . BASE_URL . "/citizen/track_issue.php");
+    exit;
+}
+
+$isCommon = ((int)$isCommonVal === 1);
+if (!$isCommon) {
+    $_SESSION['flash_error'] = "Voting is only allowed for common issues.";
+    header("Location: " . BASE_URL . "/citizen/issue_view.php?issue_id=" . $issueId);
+    exit;
+}
+
+/* Check existing vote */
 $st = $pdo->prepare("SELECT vote_id FROM votes WHERE issue_id = ? AND user_id = ? AND value = 1 LIMIT 1");
 $st->execute([$issueId, $userId]);
 $voteId = $st->fetchColumn();
 
 if ($voteId) {
-    //Remove vote (toggle off)
+    // Remove vote (toggle off)
     $st = $pdo->prepare("DELETE FROM votes WHERE vote_id = ?");
     $st->execute([(int)$voteId]);
     $_SESSION['flash_success'] = "Upvote removed.";

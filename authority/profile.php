@@ -191,7 +191,7 @@ if ($areaId > 0) {
               </div>
 
               <div class="col-12 col-md-6">
-                <label class="form-label">Assigned Area</label>
+                <label class="form-label">Assigned Branch</label>
                 <input class="form-control" value="<?= h($areaName) ?>" disabled>
               </div>
 
@@ -241,4 +241,4 @@ if ($areaId > 0) {
 })();
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>

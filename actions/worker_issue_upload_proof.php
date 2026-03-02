@@ -8,14 +8,16 @@ require_once __DIR__ . '/../config/constants.php';
 require_roles(['worker']);
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-$userId  = (int)($_SESSION['user_id'] ?? 0);
-$issueId = (int)($_POST['issue_id'] ?? 0);
+$userId    = (int)($_SESSION['user_id'] ?? 0);
+$issueId   = (int)($_POST['issue_id'] ?? 0);
 $photoType = strtoupper(trim((string)($_POST['photo_type'] ?? '')));
 
-$allowedTypes = ['PROOF_BEFORE','PROOF_AFTER'];
-if ($issueId <= 0 || !in_array($photoType, $allowedTypes, true)) {
+// ✅ must match your form's values
+$allowedTypes = ['PROOF'];
+
+if ($issueId <= 0 || $photoType === '' || !in_array($photoType, $allowedTypes, true)) {
   $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Invalid proof type.'];
-  header("Location: " . BASE_URL . "/worker/assigned_issues.php");
+  header("Location: " . BASE_URL . "/worker/issue_view.php?issue_id=" . $issueId);
   exit;
 }
 
@@ -36,20 +38,24 @@ if (empty($_FILES['photo']) || ($_FILES['photo']['error'] ?? UPLOAD_ERR_NO_FILE)
 }
 
 $f = $_FILES['photo'];
+
+// max 5MB
 if (($f['size'] ?? 0) > 5 * 1024 * 1024) {
   $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Max 5MB allowed.'];
   header("Location: " . BASE_URL . "/worker/issue_view.php?issue_id=" . $issueId);
   exit;
 }
 
+// only JPG/PNG/WebP
 $mime = mime_content_type($f['tmp_name']);
-$allowedMime = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+$allowedMime = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 if (!isset($allowedMime[$mime])) {
   $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Only JPG/PNG/WebP allowed.'];
   header("Location: " . BASE_URL . "/worker/issue_view.php?issue_id=" . $issueId);
   exit;
 }
 
+// upload folder
 $uploadDir = __DIR__ . '/../public/uploads/issues';
 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
