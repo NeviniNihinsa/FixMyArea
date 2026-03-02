@@ -523,6 +523,7 @@ require_once __DIR__ . '/../includes/navbar.php';
 
     <form method="POST" action="<?= BASE_URL ?>/actions/comment_add.php" class="mb-3">
       <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
+      <input type="hidden" name="return_to" value="authority/view_issue.php?issue_id=<?= (int)$issueId ?>">
       <textarea name="comment_text" class="form-control comment-box" placeholder="Write a comment..." required></textarea>
       <div class="d-flex justify-content-end mt-2">
         <button class="btn btn-brand btn-sm" type="submit">Add Comment</button>

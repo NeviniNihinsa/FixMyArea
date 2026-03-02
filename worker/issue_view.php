@@ -268,6 +268,7 @@ function stars(?int $val): string {
 
         <form method="POST" action="<?= BASE_URL ?>/actions/comment_add.php" class="mt-3">
           <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
+          <input type="hidden" name="return_to" value="worker/issue_view.php?issue_id=<?= (int)$issueId ?>">
           <div class="d-flex gap-2">
             <input type="text" name="comment_text" class="form-control" placeholder="Add comment..." required maxlength="300">
             <button class="btn btn-brand" type="submit">Add Comment</button>
