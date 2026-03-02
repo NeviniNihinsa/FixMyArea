@@ -4,7 +4,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
-
 require_roles(['worker']);
 
 $page_title = 'Profile - FixMyArea';
