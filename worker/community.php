@@ -46,15 +46,8 @@ function h(?string $s): string {
   <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h1 class="fw-bold mb-0" style="font-size: 2.4rem;">Community</h1>
 
-    <div class="d-flex align-items-center gap-3 flex-wrap">
-      <div class="text-muted small">
-        Sort: <span class="fw-semibold">Recently Added</span>
-      </div>
-
-      <!-- ✅ NEW: View Leaderboard button (same style as authority) -->
-      <a class="btn btn-brand btn-sm" href="<?= BASE_URL ?>/worker/leaderboard.php">
-        View Leaderboard
-      </a>
+    <div class="text-muted small">
+      Sort: <span class="fw-semibold">Recently Added</span>
     </div>
   </div>
 
@@ -72,14 +65,18 @@ function h(?string $s): string {
 
             <div class="flex-grow-1">
               <div class="fw-semibold" style="font-size:1.05rem;">
-                #<?= (int)$r['issue_id'] ?> |
-                <?= h($r['title']) ?> |
+                #<?= (int)$r['issue_id'] ?> | 
+                <?= h($r['title']) ?> | 
                 <?= h($r['status']) ?>
               </div>
 
               <div class="mt-2 d-flex flex-wrap gap-4 text-muted small">
-                <div><?= (int)$r['upvotes'] ?> upvotes</div>
-                <div><?= (int)$r['comments_count'] ?> comments</div>
+                <div>
+                  <?= (int)$r['upvotes'] ?> upvotes
+                </div>
+                <div>
+                  <?= (int)$r['comments_count'] ?> comments
+                </div>
               </div>
             </div>
 
