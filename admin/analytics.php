@@ -175,52 +175,6 @@ $byCommonArea   = $st->fetchAll(PDO::FETCH_ASSOC);
 $caLabels       = array_map(fn($r) => (string)$r['label'], $byCommonArea);
 $caData         = array_map(fn($r) => (int)$r['c'], $byCommonArea);
 
-/** CSV Download */
-// $download = (string)($_GET['download'] ?? '');
-// if ($download === 'csv') {
-//   header('Content-Type: text/csv; charset=utf-8');
-//   header('Content-Disposition: attachment; filename="analytics_report.csv"');
-
-//   $out = fopen('php://output', 'w');
-
-//   fputcsv($out, ['Fixly Analytics Report']);
-//   fputcsv($out, ['Branch', $selectedAreaName]);  // fixed: was raw ID
-//   fputcsv($out, ['Location Type', $locType !== '' ? ucfirst($locType) : 'All']);
-//   fputcsv($out, ['From', $fromDate !== '' ? $fromDate : 'Any']);
-//   fputcsv($out, ['To',   $toDate   !== '' ? $toDate   : 'Any']);
-//   fputcsv($out, []);
-//   fputcsv($out, ['Total Issues',              $totalIssues]);
-//   fputcsv($out, ['Resolved Issues',           $resolvedIssues]);
-//   fputcsv($out, ['Pending',                   $pendingCount]);
-//   fputcsv($out, ['Assigned',                  $assignedCount]);
-//   fputcsv($out, ['In Progress',               $inProgressCount]);
-//   fputcsv($out, ['Reopened',                  $reopenedCount]);
-//   fputcsv($out, ['Avg Resolution Time (days)', $avgResolution]);
-//   fputcsv($out, []);
-
-//   fputcsv($out, ['Location Split']);
-//   fputcsv($out, ['Common Area Issues', $commonCount]);
-//   fputcsv($out, ['Tenant Unit Issues', $unitCount]);
-//   fputcsv($out, []);
-
-//   fputcsv($out, ['Issue Distribution by Category']);
-//   fputcsv($out, ['Category', 'Count']);
-//   foreach ($byCategory as $row) { fputcsv($out, [$row['label'], $row['c']]); }
-//   fputcsv($out, []);
-
-//   fputcsv($out, ['Issues by Common Area']);
-//   fputcsv($out, ['Common Area', 'Count']);
-//   foreach ($byCommonArea as $row) { fputcsv($out, [$row['label'], $row['c']]); }
-//   fputcsv($out, []);
-
-//   fputcsv($out, ['Resolution Time Analysis']);
-//   fputcsv($out, ['Range', 'Count']);
-//   foreach ($buckets as $k => $v) { fputcsv($out, [$k, $v]); }
-
-//   fclose($out);
-//   exit;
-// }
-
 /** PDF Download */
 $download = (string)($_GET['download'] ?? '');
 
@@ -381,6 +335,35 @@ if ($download === 'pdf') {
 function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 ?>
 
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<style>
+  #issuesMapWorker { width: 100%; height: 100%; min-height: 420px; }
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip {
+    background: rgba(10, 20, 25, 0.95);
+    color: #e8f1f1;
+    border: 1px solid rgba(241,246,246,0.15);
+  }
+  .leaflet-popup-content { margin: 10px 12px; }
+  .status-marker {
+    width: 14px; height: 14px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.9);
+    box-shadow: 0 0 0 6px rgba(0,0,0,0.18);
+  }
+</style>
+
 <div class="container py-4">
 
   <h2 class="fw-bold mb-4">Analytics & Reports</h2>
@@ -539,14 +522,12 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
 
   <!-- HEATMAP PLACEHOLDER -->
   <div class="card-dark p-4 mb-4">
-    <h5 class="fw-semibold mb-3">Issue Density Heatmap</h5>
+    <h5 class="fw-semibold mb-3">Issue Density Map</h5>
     <div class="ratio ratio-21x9" style="border-radius: 14px; overflow:hidden;">
-      <div class="d-flex align-items-center justify-content-center" style="background: rgba(255,255,255,0.04);">
-        <div class="text-center">
-          <div class="text-muted">Heatmap Placeholder</div>
-          <div class="small text-muted">We will add OpenStreetMap/Leaflet heat layer later.</div>
-        </div>
-      </div>
+      <div id="issuesMapAdmin"></div>
+    </div>
+    <div class="mt-2 small text-muted" id="mapMetaAdmin">
+      Loading issues on the map…
     </div>
     <div class="mt-3 d-flex justify-content-end">
       <?php
@@ -642,6 +623,114 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
       options: barOpts(true) // horizontal
     });
   }
+})();
+</script>
+
+<script>
+(() => {
+  const BASE = <?= json_encode(BASE_URL) ?>;
+
+  const meta = document.getElementById('mapMetaAdmin');
+  const mapEl = document.getElementById('issuesMapAdmin');
+  if (!mapEl) return;
+
+  const SRI_LANKA_CENTER = [7.8731, 80.7718];
+  const SRI_LANKA_ZOOM = 7;
+
+  const map = L.map('issuesMapAdmin', {
+    zoomControl: true,
+    scrollWheelZoom: true
+  }).setView(SRI_LANKA_CENTER, SRI_LANKA_ZOOM);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const statusColor = (status) => {
+    switch ((status || '').toUpperCase()) {
+      case 'PENDING': return '#94a3b8';
+      case 'ASSIGNED': return '#38bdf8';
+      case 'IN_PROGRESS': return '#fbbf24';
+      case 'COMPLETED': return '#22c55e';
+      case 'CLOSED': return '#16a34a';
+      case 'REOPENED': return '#f97316';
+      case 'REJECTED': return '#ef4444';
+      default: return '#94a3b8';
+    }
+  };
+
+  const makeDotIcon = (color) => L.divIcon({
+    className: '',
+    html: `<div class="status-marker" style="background:${color}"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -8]
+  });
+
+  const escHtml = (s) => {
+    const d = document.createElement('div');
+    d.textContent = String(s ?? '');
+    return d.innerHTML;
+  };
+
+  // ✅ Use the SAME filters currently on the page
+  const params = new URLSearchParams({
+    area_id: <?= (int)$areaId ?>,
+    from_date: <?= json_encode($fromDate) ?>,
+    to_date: <?= json_encode($toDate) ?>,
+    loc_type: <?= json_encode($locType) ?>,
+  });
+
+  fetch(BASE + '/actions/map_issues_admin.php?' + params.toString(), { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !data.ok) throw new Error(data?.error || 'Failed');
+
+      const markers = Array.isArray(data.markers) ? data.markers : [];
+      meta.textContent = `Showing ${markers.length} issue(s) on the map for current filters.`;
+
+      if (markers.length === 0) {
+        map.setView(SRI_LANKA_CENTER, SRI_LANKA_ZOOM);
+        return;
+      }
+
+      const bounds = [];
+
+      markers.forEach(m => {
+        const lat = Number(m.lat);
+        const lng = Number(m.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const col = statusColor(m.status);
+        const icon = makeDotIcon(col);
+
+        const typeLabel = (Number(m.is_common) === 1)
+          ? `<div class="small text-muted">Type: <b>Common</b>${m.common_area_name ? ` • Area: ${escHtml(m.common_area_name)}` : ''}</div>`
+          : `<div class="small text-muted">Type: <b>Personal</b></div>`;
+
+        const popup = `
+          <div style="min-width:220px;">
+            <div class="fw-semibold">#${Number(m.issue_id)} — ${escHtml(m.title)}</div>
+            <div class="small">Status: <span style="color:${col}; font-weight:700;">${escHtml(m.status)}</span></div>
+            ${typeLabel}
+            <div class="mt-2">
+              <a class="btn btn-sm btn-outline-brand" href="${BASE}/admin/view_issue.php?issue_id=${Number(m.issue_id)}">View</a>
+            </div>
+          </div>
+        `;
+
+        L.marker([lat, lng], { icon }).addTo(map).bindPopup(popup);
+        bounds.push([lat, lng]);
+      });
+
+      if (bounds.length) map.fitBounds(bounds, { padding: [25, 25] });
+      else map.setView(SRI_LANKA_CENTER, SRI_LANKA_ZOOM);
+    })
+    .catch(() => {
+      meta.textContent = 'Could not load issues for the map.';
+      map.setView(SRI_LANKA_CENTER, SRI_LANKA_ZOOM);
+    });
 })();
 </script>
 
