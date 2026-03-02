@@ -61,7 +61,24 @@ if ($areaId > 0) {
 }
 ?>
 
-<div class="container py-4 app-container" style="max-width: 980px;">
+<style>
+ 
+  .profile-shell{
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .avatar-ring{
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    border: 3px solid #ffae52;
+    display:flex; align-items:center; justify-content:center;
+    margin: 0 auto 10px auto;
+  }
+  .avatar-ring i{
+    font-size: 56px;
+    color: #ffad52;
+  }
+</style>
 
   <?php if ($flash && is_array($flash)): ?>
     <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>

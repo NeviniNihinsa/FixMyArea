@@ -219,4 +219,4 @@ $authorityDisplayId = 'AUTH' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT);
 })();
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>

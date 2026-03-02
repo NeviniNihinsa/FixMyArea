@@ -174,47 +174,4 @@ $workerDisplayId = 'WORK' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT);
   </div>
 </div>
 
-<script>
-(() => {
-  const form = document.getElementById('profileForm');
-  const btnEdit = document.getElementById('btnEdit');
-  const btnSave = document.getElementById('btnSave');
-  const btnCancel = document.getElementById('btnCancel');
-
-  const editable = ['name','phone','dob','address'];
-
-  function setMode(viewMode) {
-    editable.forEach(n => {
-      const el = form.querySelector(`[name="${n}"]`);
-      if (!el) return;
-      if (viewMode) el.setAttribute('readonly','readonly');
-      else el.removeAttribute('readonly');
-    });
-
-    form.querySelectorAll('input[name="gender"]').forEach(r => r.disabled = viewMode);
-
-    btnSave.style.display   = viewMode ? 'none' : 'inline-block';
-    btnCancel.style.display = viewMode ? 'none' : 'inline-block';
-    btnEdit.style.display   = viewMode ? 'inline-block' : 'none';
-  }
-
-  setMode(true);
-
-  btnEdit.addEventListener('click', () => setMode(false));
-
-  btnCancel.addEventListener('click', () => window.location.reload());
-
-  form.addEventListener('submit', (e) => {
-    const name = (form.querySelector('[name="name"]').value || '').trim();
-    const phone = (form.querySelector('[name="phone"]').value || '').trim();
-    const address = (form.querySelector('[name="address"]').value || '').trim();
-
-    if (name.length < 2 || phone.length < 7 || address.length < 2) {
-      e.preventDefault();
-      alert("Please fill required fields (Name, Phone, Address).");
-    }
-  });
-})();
-</script>
-
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
