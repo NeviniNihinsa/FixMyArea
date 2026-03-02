@@ -264,6 +264,7 @@ function stars(int $n): string {
 
         <form method="POST" action="<?= BASE_URL ?>/actions/comment_add.php" class="mt-3">
           <input type="hidden" name="issue_id" value="<?= $issueId ?>">
+          <input type="hidden" name="return_to" value="citizen/issue_view.php?issue_id=<?= $issueId ?>">
           <label class="form-label mt-2">Add Comment</label>
           <textarea name="comment_text" class="form-control" rows="3" required></textarea>
           <button class="btn btn-outline-brand mt-2" type="submit">Add Comment</button>
