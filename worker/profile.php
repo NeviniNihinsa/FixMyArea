@@ -160,7 +160,7 @@ $workerDisplayId = 'WORK' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT);
         <div class="col-12 col-md-6">
           <label class="form-label">Assigned Branch</label>
           <input class="form-control" value="<?= h($branchName) ?>" readonly>
-          <div class="text-muted small mt-1">Branch is assigned by authority and cannot be changed.</div>
+          <div class="text-muted small mt-1">Branch is assigned by authority.</div>
         </div>
 
         <div class="col-12 col-md-6">
