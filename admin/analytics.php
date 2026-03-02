@@ -31,7 +31,7 @@ if ($fromDate !== '' && $toDate !== '' && $fromDate > $toDate) $errors[] = "From
 $areas       = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 $commonAreas = $pdo->query("SELECT common_area_id, area_name FROM common_areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
-// Resolve selected area name for CSV (fix: was outputting raw ID)
+// Resolve selected area name
 $selectedAreaName = 'All';
 foreach ($areas as $a) {
   if ((int)$a['area_id'] === $areaId) { $selectedAreaName = $a['area_name']; break; }
@@ -40,7 +40,7 @@ foreach ($areas as $a) {
 $where  = [];
 $params = [];
 
-if ($areaId > 0)     { $where[] = "i.area_id = ?";     $params[] = $areaId; }
+if ($areaId > 0)      { $where[] = "i.area_id = ?";     $params[] = $areaId; }
 if ($fromDate !== '') { $where[] = "i.created_at >= ?"; $params[] = $fromDate . " 00:00:00"; }
 if ($toDate !== '')   { $where[] = "i.created_at <= ?"; $params[] = $toDate . " 23:59:59"; }
 if ($locType === 'common') { $where[] = "i.is_common = 1"; }
@@ -58,7 +58,7 @@ $st = $pdo->prepare("SELECT COUNT(*) FROM issues i {$whereSql}" . ($whereSql ? "
 $st->execute($params);
 $resolvedIssues = (int)$st->fetchColumn();
 
-/** KPI 3: Pipeline breakdown (PENDING / ASSIGNED / IN_PROGRESS / REOPENED) */
+/** KPI 3: Pipeline breakdown */
 $sqlPipeline = "
 SELECT i.status, COUNT(*) AS c
 FROM issues i
@@ -68,14 +68,13 @@ GROUP BY i.status
 ";
 $st = $pdo->prepare($sqlPipeline);
 $st->execute($params);
-$pipelineRows = $st->fetchAll(PDO::FETCH_KEY_PAIR); // [status => count]
+$pipelineRows = $st->fetchAll(PDO::FETCH_KEY_PAIR);
 $pendingCount    = (int)($pipelineRows['PENDING']     ?? 0);
 $assignedCount   = (int)($pipelineRows['ASSIGNED']    ?? 0);
 $inProgressCount = (int)($pipelineRows['IN_PROGRESS'] ?? 0);
 $reopenedCount   = (int)($pipelineRows['REOPENED']    ?? 0);
 
 /** KPI 4: Avg Resolution Time (days) */
-$avgResolution = 0.0;
 $sqlAvg = "
 SELECT AVG(DATEDIFF(h.resolved_at, i.created_at)) AS avg_days
 FROM issues i
@@ -147,9 +146,9 @@ $rtData   = array_values($buckets);
 // Only filter by area/date — NOT by locType so the donut always shows both halves
 $splitWhere  = [];
 $splitParams = [];
-if ($areaId > 0)     { $splitWhere[] = "area_id = ?"; $splitParams[] = $areaId; }
-if ($fromDate !== '') { $splitWhere[] = "created_at >= ?"; $splitParams[] = $fromDate . " 00:00:00"; }
-if ($toDate !== '')   { $splitWhere[] = "created_at <= ?"; $splitParams[] = $toDate . " 23:59:59"; }
+if ($areaId > 0)       { $splitWhere[] = "area_id = ?";       $splitParams[] = $areaId; }
+if ($fromDate !== '')  { $splitWhere[] = "created_at >= ?";   $splitParams[] = $fromDate . " 00:00:00"; }
+if ($toDate !== '')    { $splitWhere[] = "created_at <= ?";   $splitParams[] = $toDate . " 23:59:59"; }
 $splitWhereSql = $splitWhere ? ("WHERE " . implode(" AND ", $splitWhere)) : "";
 
 $st = $pdo->prepare("SELECT SUM(is_common = 1) AS common_count, SUM(is_common = 0) AS unit_count FROM issues {$splitWhereSql}");
@@ -159,7 +158,6 @@ $commonCount = (int)($splitRow['common_count'] ?? 0);
 $unitCount   = (int)($splitRow['unit_count']   ?? 0);
 
 /** Chart 4: Issues by Common Area */
-// Only visible / useful when loc_type is '' or 'common'
 $sqlCommonAreaBreakdown = "
 SELECT ca.area_name AS label, COUNT(*) AS c
 FROM issues i
@@ -171,21 +169,22 @@ ORDER BY c DESC
 ";
 $st = $pdo->prepare($sqlCommonAreaBreakdown);
 $st->execute($params);
-$byCommonArea   = $st->fetchAll(PDO::FETCH_ASSOC);
-$caLabels       = array_map(fn($r) => (string)$r['label'], $byCommonArea);
-$caData         = array_map(fn($r) => (int)$r['c'], $byCommonArea);
+$byCommonArea = $st->fetchAll(PDO::FETCH_ASSOC);
+$caLabels     = array_map(fn($r) => (string)$r['label'], $byCommonArea);
+$caData       = array_map(fn($r) => (int)$r['c'], $byCommonArea);
 
-/** PDF Download */
+/** PDF Download (print-to-pdf flow) */
 $download = (string)($_GET['download'] ?? '');
 
 if ($download === 'pdf') {
-  
   // Build a nice filter label
   $filterLabel = [];
   $filterLabel[] = "Branch: " . ($selectedAreaName ?? 'All');
   $filterLabel[] = "Location: " . ($locType !== '' ? ucfirst($locType) : 'All');
   $filterLabel[] = "From: " . ($fromDate !== '' ? $fromDate : 'Any');
   $filterLabel[] = "To: " . ($toDate !== '' ? $toDate : 'Any');
+
+  function hpdf($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
   ?>
   <!doctype html>
@@ -194,7 +193,6 @@ if ($download === 'pdf') {
     <meta charset="utf-8">
     <title>FixMyArea Analytics Report</title>
     <style>
-      /* Print-friendly styles */
       body { font-family: Arial, sans-serif; color:#111; margin: 24px; }
       h1 { margin: 0 0 6px; font-size: 20px; }
       .meta { margin: 0 0 16px; color:#444; font-size: 12px; }
@@ -206,13 +204,7 @@ if ($download === 'pdf') {
       th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
       th { background: #f2f2f2; text-align: left; }
       .section { margin-top: 18px; }
-      .note { font-size: 12px; color: #666; margin-top: 10px; }
-
-      /* Hide any print button on paper */
-      @media print {
-        .no-print { display: none !important; }
-        body { margin: 0; }
-      }
+      @media print { .no-print { display: none !important; } body { margin: 0; } }
     </style>
   </head>
   <body>
@@ -223,13 +215,13 @@ if ($download === 'pdf') {
     <h1>FixMyArea Analytics Report</h1>
     <div class="meta">
       Generated: <?= date('Y-m-d H:i') ?><br>
-      Filters: <?= h(implode(" | ", $filterLabel)) ?>
+      Filters: <?= hpdf(implode(" | ", $filterLabel)) ?>
     </div>
 
     <div class="kpi">
       <div class="box"><div class="label">Total Issues</div><div class="value"><?= (int)$totalIssues ?></div></div>
       <div class="box"><div class="label">Resolved</div><div class="value"><?= (int)$resolvedIssues ?></div></div>
-      <div class="box"><div class="label">Avg Resolution Time</div><div class="value"><?= h((string)$avgResolution) ?> days</div></div>
+      <div class="box"><div class="label">Avg Resolution Time</div><div class="value"><?= hpdf((string)$avgResolution) ?> days</div></div>
       <div class="box"><div class="label">Reopened</div><div class="value"><?= (int)$reopenedCount ?></div></div>
     </div>
 
@@ -255,7 +247,7 @@ if ($download === 'pdf') {
         <?php else: ?>
           <?php foreach ($byCategory as $row): ?>
             <tr>
-              <td><?= h($row['label'] ?? '') ?></td>
+              <td><?= hpdf($row['label'] ?? '') ?></td>
               <td><?= (int)($row['c'] ?? 0) ?></td>
             </tr>
           <?php endforeach; ?>
@@ -270,57 +262,16 @@ if ($download === 'pdf') {
         <thead><tr><th>Range</th><th>Count</th></tr></thead>
         <tbody>
           <?php foreach ($buckets as $range => $count): ?>
-            <tr><td><?= h($range) ?></td><td><?= (int)$count ?></td></tr>
+            <tr><td><?= hpdf($range) ?></td><td><?= (int)$count ?></td></tr>
           <?php endforeach; ?>
         </tbody>
       </table>
     </div>
 
-    <div class="section">
-      <h3>Location Split</h3>
-      <table>
-        <thead><tr><th>Type</th><th>Count</th></tr></thead>
-        <tbody>
-          <tr><td>Common Area</td><td><?= (int)$commonCount ?></td></tr>
-          <tr><td>Tenant Unit</td><td><?= (int)$unitCount ?></td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <h3>Issues by Common Area</h3>
-      <table>
-        <thead><tr><th>Common Area</th><th>Count</th></tr></thead>
-        <tbody>
-        <?php if (empty($byCommonArea)): ?>
-          <tr><td colspan="2">No common area issues for this filter.</td></tr>
-        <?php else: ?>
-          <?php foreach ($byCommonArea as $row): ?>
-            <tr>
-              <td><?= h($row['label'] ?? '') ?></td>
-              <td><?= (int)($row['c'] ?? 0) ?></td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-    
     <script>
-      window.addEventListener('load', () => {
-        // open print dialog
-        window.print();
-      });
-
-      // after print dialog closes, close the tab so user returns to Analytics
-      window.addEventListener('afterprint', () => {
-        window.close();
-      });
-
-      // fallback for browsers that don't fire afterprint reliably
-      setTimeout(() => {
-        try { window.close(); } catch (e) {}
-      }, 4000);
+      window.addEventListener('load', () => { window.print(); });
+      window.addEventListener('afterprint', () => { window.close(); });
+      setTimeout(() => { try { window.close(); } catch (e) {} }, 4000);
     </script>
   </body>
   </html>
@@ -331,6 +282,7 @@ if ($download === 'pdf') {
 function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 ?>
 
+<!-- Leaflet + Heat plugin -->
 <link
   rel="stylesheet"
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -342,22 +294,11 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
   crossorigin=""
 ></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
 <style>
-  #issuesMapWorker { width: 100%; height: 100%; min-height: 420px; }
-  .leaflet-popup-content-wrapper,
-  .leaflet-popup-tip {
-    background: rgba(10, 20, 25, 0.95);
-    color: #e8f1f1;
-    border: 1px solid rgba(241,246,246,0.15);
-  }
-  .leaflet-popup-content { margin: 10px 12px; }
-  .status-marker {
-    width: 14px; height: 14px;
-    border-radius: 999px;
-    border: 2px solid rgba(255,255,255,0.9);
-    box-shadow: 0 0 0 6px rgba(0,0,0,0.18);
-  }
+  /* ✅ FIXED: id must match container below */
+  #issuesMapAdmin { width: 100%; height: 100%; min-height: 420px; }
 </style>
 
 <div class="container py-4">
@@ -415,7 +356,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- KPI ROW 1: Summary -->
+  <!-- KPI ROW 1 -->
   <div class="row g-4 mb-3">
     <div class="col-6 col-md-3">
       <div class="card-dark p-3 text-center">
@@ -443,7 +384,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- KPI ROW 2: Pipeline -->
+  <!-- KPI ROW 2 -->
   <div class="row g-3 mb-4">
     <div class="col-12">
       <div class="card-dark p-3">
@@ -466,7 +407,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- CHARTS ROW 1: Category + Resolution Time -->
+  <!-- CHARTS ROW 1 -->
   <div class="row g-4 mb-4">
     <div class="col-12 col-lg-6">
       <div class="card-dark p-4">
@@ -488,7 +429,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- CHARTS ROW 2: Location Split + Common Area Breakdown -->
+  <!-- CHARTS ROW 2 -->
   <div class="row g-4 mb-4">
     <div class="col-12 col-lg-5">
       <div class="card-dark p-4">
@@ -516,35 +457,30 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     </div>
   </div>
 
-  <!-- HEATMAP PLACEHOLDER -->
+  <!-- HEATMAP -->
   <div class="card-dark p-4 mb-4">
-    <h5 class="fw-semibold mb-3">Issue Density Map</h5>
+    <h5 class="fw-semibold mb-3">Issue Density Heatmap</h5>
+
     <div class="ratio ratio-21x9" style="border-radius: 14px; overflow:hidden;">
       <div id="issuesMapAdmin"></div>
     </div>
-    <div class="mt-2 small text-muted" id="mapMetaAdmin">
-      Loading issues on the map…
-    </div>
+
+    <div class="mt-2 small text-muted" id="mapMetaAdmin">Loading heatmap…</div>
+
     <div class="mt-3 d-flex justify-content-end">
       <?php
         $qs = $_GET;
-        $qs['download'] = 'csv';
-        $downloadUrl = BASE_URL . '/admin/analytics.php?' . http_build_query($qs);
-      ?>
-      <?php
-        $qs = $_GET;
         $qs['download'] = 'pdf';
-        $downloadUrl = 'analytics.php?' . http_build_query($qs); // ✅ relative, always works
+        $downloadUrl = 'analytics.php?' . http_build_query($qs); // relative
       ?>
-      <a class="btn btn-outline-brand" href="<?= h($downloadUrl) ?>" target="_blank" rel="noopener">
-        Download Report
-      </a>
+      <a class="btn btn-outline-brand" href="<?= h($downloadUrl) ?>" target="_blank" rel="noopener">Download Report</a>
     </div>
   </div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <script>
 (() => {
   const catLabels = <?= json_encode($catLabels) ?>;
@@ -558,6 +494,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
   const gridColor  = 'rgba(255,145,76,0.12)';
   const tickColor  = '#a07840';
   const barColors  = ['#ff914c','#ffad52','#ffcc56','#f97316','#fb923c','#fbbf24','#d97706','#92400e'];
+
   function barOpts(horizontal = false) {
     return {
       responsive: true,
@@ -570,7 +507,6 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     };
   }
 
-  // Category chart
   const cEl = document.getElementById('catChart');
   if (cEl && catLabels.length) {
     new Chart(cEl, {
@@ -580,7 +516,6 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     });
   }
 
-  // Resolution time chart
   const rEl = document.getElementById('rtChart');
   if (rEl) {
     new Chart(rEl, {
@@ -590,7 +525,6 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     });
   }
 
-  // Common Area vs Unit donut
   const sEl = document.getElementById('splitChart');
   if (sEl && (splitData[0] + splitData[1]) > 0) {
     new Chart(sEl, {
@@ -602,21 +536,17 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
       options: {
         responsive: true,
         cutout: '65%',
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
-        }
+        plugins: { legend: { display: false } }
       }
     });
   }
 
-  // Issues by Common Area horizontal bar
   const caEl = document.getElementById('caChart');
   if (caEl && caLabels.length) {
     new Chart(caEl, {
       type: 'bar',
       data: { labels: caLabels, datasets: [{ data: caData, backgroundColor: caLabels.map((_,i) => barColors[i % barColors.length]) }] },
-      options: barOpts(true) // horizontal
+      options: barOpts(true)
     });
   }
 })();
@@ -643,34 +573,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  const statusColor = (status) => {
-    switch ((status || '').toUpperCase()) {
-      case 'PENDING': return '#94a3b8';
-      case 'ASSIGNED': return '#38bdf8';
-      case 'IN_PROGRESS': return '#fbbf24';
-      case 'COMPLETED': return '#22c55e';
-      case 'CLOSED': return '#16a34a';
-      case 'REOPENED': return '#f97316';
-      case 'REJECTED': return '#ef4444';
-      default: return '#94a3b8';
-    }
-  };
-
-  const makeDotIcon = (color) => L.divIcon({
-    className: '',
-    html: `<div class="status-marker" style="background:${color}"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -8]
-  });
-
-  const escHtml = (s) => {
-    const d = document.createElement('div');
-    d.textContent = String(s ?? '');
-    return d.innerHTML;
-  };
-
-  // ✅ Use the SAME filters currently on the page
+  // use same filters currently on the page
   const params = new URLSearchParams({
     area_id: <?= (int)$areaId ?>,
     from_date: <?= json_encode($fromDate) ?>,
@@ -678,19 +581,33 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     loc_type: <?= json_encode($locType) ?>,
   });
 
+  const intensityForStatus = (status) => {
+    switch ((status || '').toUpperCase()) {
+      case 'REOPENED': return 0.95;
+      case 'IN_PROGRESS': return 0.85;
+      case 'ASSIGNED': return 0.75;
+      case 'PENDING': return 0.70;
+      case 'COMPLETED':
+      case 'CLOSED': return 0.45;
+      case 'REJECTED': return 0.40;
+      default: return 0.60;
+    }
+  };
+
   fetch(BASE + '/actions/map_issues_admin.php?' + params.toString(), { credentials: 'same-origin' })
     .then(r => r.json())
     .then(data => {
       if (!data || !data.ok) throw new Error(data?.error || 'Failed');
 
       const markers = Array.isArray(data.markers) ? data.markers : [];
-      meta.textContent = `Showing ${markers.length} issue(s) on the map for current filters.`;
+      meta.textContent = `Heatmap shows ${markers.length} issue point(s) for current filters.`;
 
       if (markers.length === 0) {
         map.setView(SRI_LANKA_CENTER, SRI_LANKA_ZOOM);
         return;
       }
 
+      const heatPoints = [];
       const bounds = [];
 
       markers.forEach(m => {
@@ -698,33 +615,22 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
         const lng = Number(m.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-        const col = statusColor(m.status);
-        const icon = makeDotIcon(col);
-
-        const typeLabel = (Number(m.is_common) === 1)
-          ? `<div class="small text-muted">Type: <b>Common</b>${m.common_area_name ? ` • Area: ${escHtml(m.common_area_name)}` : ''}</div>`
-          : `<div class="small text-muted">Type: <b>Personal</b></div>`;
-
-        const popup = `
-          <div style="min-width:220px;">
-            <div class="fw-semibold">#${Number(m.issue_id)} — ${escHtml(m.title)}</div>
-            <div class="small">Status: <span style="color:${col}; font-weight:700;">${escHtml(m.status)}</span></div>
-            ${typeLabel}
-            <div class="mt-2">
-              <a class="btn btn-sm btn-outline-brand" href="${BASE}/admin/view_issue.php?issue_id=${Number(m.issue_id)}">View</a>
-            </div>
-          </div>
-        `;
-
-        L.marker([lat, lng], { icon }).addTo(map).bindPopup(popup);
+        heatPoints.push([lat, lng, intensityForStatus(m.status)]);
         bounds.push([lat, lng]);
       });
+
+      const heat = L.heatLayer(heatPoints, {
+        radius: 25,
+        blur: 18,
+        maxZoom: 17,
+        minOpacity: 0.35
+      }).addTo(map);
 
       if (bounds.length) map.fitBounds(bounds, { padding: [25, 25] });
       else map.setView(SRI_LANKA_CENTER, SRI_LANKA_ZOOM);
     })
     .catch(() => {
-      meta.textContent = 'Could not load issues for the map.';
+      meta.textContent = 'Could not load issues for the heatmap.';
       map.setView(SRI_LANKA_CENTER, SRI_LANKA_ZOOM);
     });
 })();
