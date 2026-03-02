@@ -4,20 +4,20 @@ require_once __DIR__ . '/../config/constants.php';
 ?>
 
 <footer class="mt-auto py-3" style="background:#fff8ee; border-top: 2px solid rgba(255,145,76,0.15);">
-  <div class="container">
+  <div class="container-fluid px-4">
 
     <!-- Top row: Logo + support info horizontal -->
     <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 mb-2">
       <img src="<?= BASE_URL ?>/public/assets/img/logo3.png" alt="Fixly" style="height:36px;width:auto;">
 
       <div class="d-flex flex-wrap gap-3 align-items-center justify-content-center small" style="color:var(--muted-400);">
-        <span>📞 <strong style="color:var(--accent-600);">+94 11 234 5678</strong></span>
+        <span><i class="bi bi-telephone-fill"></i><strong style="color:var(--accent-600);"> +94 11 234 5678</strong></span>
         <span style="color:var(--border);">|</span>
-        <span>✉️ support@fixly.lk</span>
+        <span><i class="bi bi-envelope-at-fill"></i> support@fixly.lk</span>
         <span style="color:var(--border);">|</span>
-        <span>🕐 Mon–Fri, 8am–6pm</span>
+        <span><i class="bi bi-alarm-fill"></i> Mon–Fri, 8am–6pm</span>
         <span style="color:var(--border);">|</span>
-        <span>Emergencies: 24/7</span>
+        <span><i class="bi bi-exclamation-triangle-fill"></i> Emergencies: 24/7</span>
       </div>
     </div>
 

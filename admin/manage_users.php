@@ -142,7 +142,7 @@ function displayRole(string $r): string {
                       <form method="POST" action="<?= BASE_URL ?>/actions/admin_toggle_user.php" class="m-0">
                         <input type="hidden" name="user_id" value="<?= (int)$u['user_id'] ?>">
                         <input type="hidden" name="to" value="<?= $stTxt === 'active' ? 'inactive' : 'active' ?>">
-                        <button class="btn btn-sm btn-outline-light" type="submit">
+                        <button class="btn btn-sm <?= $stTxt === 'active' ? 'btn-outline-danger' : 'btn-outline-success' ?>" type="submit">
                           <?= $stTxt === 'active' ? 'Disable' : 'Enable' ?>
                         </button>
                       </form>
@@ -178,7 +178,7 @@ function displayRole(string $r): string {
                 <form method="POST" action="<?= BASE_URL ?>/actions/admin_toggle_user.php" class="m-0">
                   <input type="hidden" name="user_id" value="<?= (int)$u['user_id'] ?>">
                   <input type="hidden" name="to" value="<?= $stTxt === 'active' ? 'inactive' : 'active' ?>">
-                  <button class="btn btn-sm btn-outline-light" type="submit">
+                  <button class="btn btn-sm <?= $stTxt === 'active' ? 'btn-outline-danger' : 'btn-outline-success' ?>" type="submit">
                     <?= $stTxt === 'active' ? 'Disable' : 'Enable' ?>
                   </button>
                 </form>

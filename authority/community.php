@@ -41,7 +41,7 @@ if ($myAreaId <= 0) {
             Your account is not assigned to an area yet. Please contact admin.
           </div>
         </div>";
-  require_once __DIR__ . '/../includes/footer.php';
+  require_once __DIR__ . '/../includes/footer_internal.php';
   exit;
 }
 
@@ -155,4 +155,4 @@ require_once __DIR__ . '/../includes/navbar.php';
   </div>
 </div>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
