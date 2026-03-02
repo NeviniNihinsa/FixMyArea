@@ -305,10 +305,6 @@ if ($download === 'pdf') {
         </tbody>
       </table>
     </div>
-
-    <div class="note">
-      To download: In the print window choose “Save as PDF”.
-    </div>
     
     <script>
       window.addEventListener('load', () => {
