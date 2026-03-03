@@ -57,7 +57,7 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
     </select>
 </form>
 
-    <a href="<?= BASE_URL ?>/admin/leaderboard.php" class="btn btn-outline-brand btn-sm">
+    <a href="<?= BASE_URL ?>/admin/leaderboard.php" class="btn btn-brand btn-sm">
          View Leaderboard
     </a>
 </div>
