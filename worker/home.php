@@ -56,13 +56,15 @@ $newNotifs = (int)$st->fetchColumn();
 $st = $pdo->prepare("
   SELECT
     i.issue_id, i.title, i.status, i.created_at,
+    i.is_common,
     c.category_name,
-    a.area_name,
-    u.email AS reporter_email
+    ca.area_name AS common_area_name,
+    u.email AS reporter_email,
+    u.address AS reporter_address
   FROM assignments x
   JOIN issues i ON i.issue_id = x.issue_id
   LEFT JOIN issue_categories c ON c.category_id = i.category_id
-  LEFT JOIN areas a ON a.area_id = i.area_id
+  LEFT JOIN common_areas ca ON ca.common_area_id = i.common_area_id
   LEFT JOIN users u ON u.user_id = i.reporter_user_id
   WHERE x.field_worker_id = ?
   ORDER BY i.created_at DESC, i.issue_id DESC
@@ -164,7 +166,7 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
   </div>
 
   <div class="mt-4">
-    <h4 class="fw-semibold mb-3">Recently Assigned / Updated Issues</h4>
+    <h4 class="fw-semibold mb-3">Recent Updates</h4>
 
     <div class="card-dark p-3 p-md-4">
       <div class="table-responsive d-none d-md-block">
@@ -174,7 +176,7 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
               <th>Issue ID</th>
               <th>Title</th>
               <th>Category</th>
-              <th>Area</th>
+              <th>Location</th>
               <th>Reported By</th>
               <th>Status</th>
               <th style="width:120px;">Action</th>
@@ -189,7 +191,19 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
                 <td>#<?= (int)$r['issue_id'] ?></td>
                 <td><?= h($r['title']) ?></td>
                 <td><?= h($r['category_name'] ?? '—') ?></td>
-                <td><?= h($r['area_name'] ?? '—') ?></td>
+                <td>
+                  <?php if ((int)$r['is_common'] === 1): ?>
+                    <span class="badge bg-primary bg-opacity-75">Common</span>
+                    <?php if (!empty($r['common_area_name'])): ?>
+                      <br><small class="text-muted"><?= h($r['common_area_name']) ?></small>
+                    <?php endif; ?>
+                  <?php else: ?>
+                    <span class="badge bg-secondary bg-opacity-75">Private</span>
+                    <?php if (!empty($r['reporter_address'])): ?>
+                      <br><small class="text-muted"><?= h($r['reporter_address']) ?></small>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </td>
                 <td><?= h($r['reporter_email'] ?? '—') ?></td>
                 <td><span class="badge bg-secondary"><?= h(niceStatus((string)$r['status'])) ?></span></td>
                 <td>
@@ -215,7 +229,13 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
                 <span class="badge bg-secondary"><?= h(niceStatus((string)$r['status'])) ?></span>
               </div>
               <div class="text-muted small mt-1">
-                <?= h($r['category_name'] ?? '—') ?> • <?= h($r['area_name'] ?? '—') ?>
+                <?= h($r['category_name'] ?? '—') ?>
+                •
+                <?php if ((int)$r['is_common'] === 1): ?>
+                  Common<?= !empty($r['common_area_name']) ? ' — ' . h($r['common_area_name']) : '' ?>
+                <?php else: ?>
+                  Unit<?= !empty($r['reporter_address']) ? ' — ' . h($r['reporter_address']) : '' ?>
+                <?php endif; ?>
               </div>
               <div class="text-muted small">Reported by: <?= h($r['reporter_email'] ?? '—') ?></div>
               <div class="mt-2">
@@ -334,5 +354,4 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
 })();
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
 <?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>

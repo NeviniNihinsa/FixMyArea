@@ -24,12 +24,14 @@ $st = $pdo->prepare("
     c.category_name,
     a.area_name,
     u.name AS reporter_name, u.email AS reporter_email,
-    u.address AS unit_number
+    u.address AS unit_number,
+    w.name AS assigned_worker_name
   FROM assignments x
   JOIN issues i ON i.issue_id = x.issue_id
   LEFT JOIN issue_categories c ON c.category_id = i.category_id
   LEFT JOIN areas a ON a.area_id = i.area_id
   LEFT JOIN users u ON u.user_id = i.reporter_user_id
+  LEFT JOIN users w ON w.user_id = x.field_worker_id
   WHERE x.field_worker_id = ? AND i.issue_id = ?
   LIMIT 1
 ");
@@ -53,7 +55,7 @@ $photos = $st->fetchAll(PDO::FETCH_ASSOC);
 
 // timeline
 $st = $pdo->prepare("
-  SELECT h.status, h.note, h.created_at, u.name AS changed_by
+  SELECT h.status, h.note, h.created_at, u.name AS changed_by, u.role AS changed_by_role
   FROM issue_status_history h
   LEFT JOIN users u ON u.user_id = h.changed_by_user_id
   WHERE h.issue_id = ?
@@ -63,7 +65,7 @@ try {
   $st->execute([$issueId]);
 } catch (Throwable $e) {
   $st = $pdo->prepare("
-    SELECT h.status, h.note, h.created_at, u.name AS changed_by
+    SELECT h.status, h.note, h.created_at, u.name AS changed_by, u.role AS changed_by_role
     FROM issue_status_history h
     LEFT JOIN users u ON u.user_id = h.changed_by_user_id
     WHERE h.issue_id = ?
@@ -128,6 +130,15 @@ function photoUrl(string $path): string {
     ? (BASE_URL . $path)
     : (BASE_URL . '/' . ltrim($path, '/'));
 }
+function roleLabel(?string $role): string {
+  return match(strtolower(trim((string)$role))) {
+    'citizen'                     => 'Tenant',
+    'field worker', 'worker'      => 'Maintenance Technician',
+    'local authority','authority' => 'Property Manager',
+    'admin'                       => 'Admin',
+    default                       => ucfirst((string)$role),
+  };
+}
 function stars(?int $val): string {
   if ($val === null) return '<span class="text-muted small">N/A</span>';
   $out = '';
@@ -150,6 +161,7 @@ function stars(?int $val): string {
         &nbsp; • &nbsp; Category: <span class="fw-semibold"><?= h($issue['category_name'] ?? '—') ?></span>
         &nbsp; • &nbsp; Status: <span class="fw-semibold"><?= h((string)$issue['status']) ?></span>
         &nbsp; • &nbsp; Unit: <span class="fw-semibold"><?= h($issue['unit_number'] ?? '—') ?></span>
+        &nbsp; • &nbsp; Assigned to: <span class="fw-semibold"><?= h($issue['assigned_worker_name'] ?? '—') ?></span>
       </div>
     </div>
 
@@ -290,17 +302,21 @@ function stars(?int $val): string {
             <?php foreach ($history as $hrow): ?>
               <?php
                 $isInitialReport = (strtolower(trim((string)($hrow['note'] ?? ''))) === 'issue reported by citizen');
+                $changedBy   = trim((string)($hrow['changed_by'] ?? ''));
+                $changedRole = roleLabel($hrow['changed_by_role'] ?? '');
+                $updatedByStr = ($changedBy !== '')
+                  ? 'Updated by ' . htmlspecialchars($changedBy, ENT_QUOTES, 'UTF-8') . ' (' . htmlspecialchars($changedRole, ENT_QUOTES, 'UTF-8') . ')'
+                  : '';
               ?>
               <div class="card-dark p-3">
                 <div class="fw-semibold"><?= h((string)$hrow['status']) ?></div>
                 <div class="text-muted small"><?= h((string)$hrow['created_at']) ?></div>
-                <?php if (!$isInitialReport && !empty($hrow['changed_by'])): ?>
-                  <div class="text-muted small">By: <?= h((string)$hrow['changed_by']) ?></div>
-                <?php endif; ?>
                 <?php if ($isInitialReport): ?>
                   <div class="text-muted small mt-2">Issue reported</div>
-                <?php elseif (!empty($hrow['note'])): ?>
-                  <div class="text-muted small mt-2"><?= h((string)$hrow['note']) ?></div>
+                <?php else: ?>
+                  <?php if ($updatedByStr !== ''): ?>
+                    <div class="text-muted small mt-2"><?= $updatedByStr ?></div>
+                  <?php endif; ?>
                 <?php endif; ?>
               </div>
             <?php endforeach; ?>
