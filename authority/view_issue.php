@@ -255,7 +255,8 @@ $reportPhotos = $st->fetchAll(PDO::FETCH_COLUMN);
 $st = $pdo->prepare("
   SELECT file_path
   FROM issue_photos
-  WHERE issue_id=? AND photo_type='PROOF'
+  WHERE issue_id=?
+    AND photo_type IN ('PROOF','PROOF_AFTER')
   ORDER BY photo_id DESC
 ");
 $st->execute([$issueId]);
@@ -420,13 +421,10 @@ require_once __DIR__ . '/../includes/navbar.php';
     </div>
   </div>
 
-  <!-- ── Main two-column layout ── -->
   <div class="row g-4">
 
-    <!-- LEFT col: Photos + Description + Comments -->
     <div class="col-12 col-lg-8">
 
-      <!-- Issue Photos & Description -->
       <div class="card-dark p-4 mb-4">
         <h5 class="fw-semibold mb-3">Issue Photos &amp; Description</h5>
 
@@ -497,7 +495,6 @@ require_once __DIR__ . '/../includes/navbar.php';
 
     </div>
 
-    <!-- RIGHT col: Timeline + Ratings -->
     <div class="col-12 col-lg-4">
 
       <!-- Timeline -->
@@ -512,7 +509,6 @@ require_once __DIR__ . '/../includes/navbar.php';
               <?php
                 $byName = !empty($t['changed_by_name']) ? $t['changed_by_name'] : null;
                 $byRole = !empty($t['changed_by_role']) ? roleLabel($t['changed_by_role']) : null;
-                // Strip generic trailing "by <role>" phrases that will be replaced with the real name
                 $noteText = trim((string)($t['note'] ?? ''));
                 $noteText = preg_replace('/\s+by\s+(citizen|field worker|local authority|authority|worker|admin)\.?$/i', '', $noteText);
                 $noteText = trim($noteText);
