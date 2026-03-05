@@ -88,76 +88,63 @@ require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 ?>
 
-<div class="app-container">
-  <div class="container py-4">
+<div class="container py-4 app-container">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-      <h2 class="fw-bold mb-0">Community - <?= h($myAreaName ?: 'Designated Area') ?></h2>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold">Community - <?= h($myAreaName ?: 'Designated Area') ?></h2>
 
-      <!-- Right side controls: Sort + Leaderboard button -->
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <form method="GET" class="d-flex align-items-center gap-2 mb-0">
-          <label class="text-muted small mb-0">Sort:</label>
-          <select name="sort" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-            <option value="recent"   <?= $sort === 'recent'   ? 'selected' : '' ?>>Recently Added</option>
-            <option value="upvotes"  <?= $sort === 'upvotes'  ? 'selected' : '' ?>>Most Upvoted</option>
-            <option value="comments" <?= $sort === 'comments' ? 'selected' : '' ?>>Most Commented</option>
-          </select>
-        </form>
+    <div class="d-flex align-items-center gap-3">
+      <form method="GET" class="d-flex align-items-center gap-2 small">
+        <label class="text-muted mb-0">Sort:</label>
+        <select name="sort" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+          <option value="recent"   <?= $sort === 'recent'   ? 'selected' : '' ?>>Recently Added</option>
+          <option value="upvotes"  <?= $sort === 'upvotes'  ? 'selected' : '' ?>>Most Upvoted</option>
+          <option value="comments" <?= $sort === 'comments' ? 'selected' : '' ?>>Most Commented</option>
+        </select>
+      </form>
 
-        <a class="btn btn-brand btn-sm"
-           href="<?= BASE_URL ?>/authority/leaderboard.php">
-          View Leaderboard
-        </a>
-      </div>
+      <a class="btn btn-brand btn-sm" href="<?= BASE_URL ?>/authority/leaderboard.php">
+        View Leaderboard
+      </a>
+    </div>
+  </div>
+
+  <?php if (empty($issues)): ?>
+    <div class="card-dark p-4">
+      <div class="text-muted">No community issues found for this area.</div>
+    </div>
+  <?php else: ?>
+
+    <div class="d-flex flex-column gap-4">
+      <?php foreach ($issues as $issue): ?>
+        <div class="card-dark p-4 rounded-4">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+
+            <div>
+              <div class="fw-semibold mb-2">
+                #<?= (int)$issue['issue_id'] ?> |
+                <?= h($issue['title']) ?> |
+                <?= h($issue['status']) ?>
+              </div>
+
+              <div class="text-muted small d-flex gap-4">
+                <span>⬆ <?= (int)$issue['vote_count'] ?> upvotes</span>
+                <span><i class="bi bi-chat-left-text-fill"></i> <?= (int)$issue['comment_count'] ?> comments</span>
+              </div>
+            </div>
+
+            <a class="btn btn-outline-brand"
+               href="<?= BASE_URL ?>/authority/view_issue.php?issue_id=<?= (int)$issue['issue_id'] ?>">
+              View Issue
+            </a>
+
+          </div>
+        </div>
+      <?php endforeach; ?>
     </div>
 
-    <?php if (empty($issues)): ?>
-      <div class="card-dark p-4 text-muted">No community issues found for this area.</div>
-    <?php else: ?>
+  <?php endif; ?>
 
-      <div class="d-flex flex-column gap-3">
-        <?php foreach ($issues as $i): ?>
-          <?php
-            $trackId = 'ISS' . str_pad((string)$i['issue_id'], 4, '0', STR_PAD_LEFT);
-            $title = (string)($i['title'] ?? '');
-            $status = (string)($i['status'] ?? '');
-            $votes = (int)($i['vote_count'] ?? 0);
-            $comments = (int)($i['comment_count'] ?? 0);
-          ?>
-
-          <div class="card-dark p-3">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-
-              <div class="flex-grow-1">
-                <div class="fw-semibold">
-                  Track ID | <?= h($trackId) ?> |
-                  <?= h($title) ?> |
-                  <span class="text-muted"><?= h($status) ?></span>
-                </div>
-
-                <div class="mt-2 d-flex flex-wrap gap-3 text-muted small align-items-center">
-                  <span>⬆ <?= $votes ?> upvotes</span>
-                  <span><i class="bi bi-chat-left-text-fill"></i> <?= $comments ?> comments</span>
-                </div>
-              </div>
-
-              <div>
-                <a class="btn btn-outline-brand"
-                   href="<?= BASE_URL ?>/authority/view_issue.php?issue_id=<?= (int)$i['issue_id'] ?>">
-                  View Issue
-                </a>
-              </div>
-
-            </div>
-          </div>
-
-        <?php endforeach; ?>
-      </div>
-
-    <?php endif; ?>
-
-  </div>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>
