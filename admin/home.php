@@ -26,7 +26,7 @@ foreach ($areas as $a) {
     if ((int)$a['area_id'] === $areaId) { $areaName = $a['area_name']; break; }
 }
 
-// ── Helpers ──
+
 function countIssuesByStatus(PDO $pdo, array $statuses, int $areaId = 0): int {
     if (empty($statuses)) return 0;
     $in = implode(',', array_fill(0, count($statuses), '?'));
@@ -76,11 +76,11 @@ $st = $pdo->prepare($latestSql);
 $areaId > 0 ? $st->execute([$areaId]) : $st->execute();
 $latest = $st->fetchAll(PDO::FETCH_ASSOC);
 
-// ── Map markers (ALL issues, NO FILTER) ──
-// IMPORTANT: Change i.lat / i.lng to your actual issues table columns if different.
-// Examples:
-//   i.latitude AS lat, i.longitude AS lng
-//   i.gps_lat AS lat,  i.gps_lng AS lng
+// Map markers (ALL issues, NO FILTER) 
+
+
+
+
 $st = $pdo->prepare("
   SELECT
     i.issue_id,
@@ -218,7 +218,7 @@ foreach ($mapRows as $r) {
     </div>
   </div>
 
-  <!-- Map: All Issues (NO FILTER) -->
+  <!-- Map: All Issues -->
   <div class="card-dark p-4 mb-4">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
       <h5 class="fw-semibold mb-0">All Issues Map</h5>

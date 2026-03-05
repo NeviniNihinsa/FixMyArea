@@ -106,5 +106,5 @@ try {
   exit;
 
 } catch (Throwable $e) {
-    die("DB ERROR: " . $e->getMessage()); // temp
+    die("DB ERROR: " . $e->getMessage()); 
 }

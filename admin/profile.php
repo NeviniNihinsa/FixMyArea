@@ -94,7 +94,7 @@ if ($areaId > 0) {
 
     <form id="profileForm" method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" novalidate>
 
-      <!-- keep same feature -->
+      
       <input type="hidden" name="return_to" value="/admin/profile.php">
 
       <div class="row g-3">
@@ -159,7 +159,7 @@ if ($areaId > 0) {
           <div class="field-error"><?= h($errors['gender'] ?? '') ?></div>
         </div>
 
-        <!-- keep feature/column even if you don't show it elsewhere -->
+
         <div class="col-12">
           <label class="form-label">Address</label>
           <input class="form-control" name="address" value="<?= h($address) ?>" maxlength="120" readonly>
@@ -168,7 +168,7 @@ if ($areaId > 0) {
 
       </div>
 
-      <!-- citizen style buttons -->
+      
       <div class="d-flex justify-content-center gap-2 mt-4 flex-wrap">
         <button type="button" class="btn btn-outline-brand" id="btnEdit">Edit Profile</button>
         <button type="submit" class="btn btn-brand" id="btnSave" style="display:none;">Save Changes</button>
@@ -203,7 +203,7 @@ if ($areaId > 0) {
       else el.removeAttribute('readonly');
     });
 
-    // radios must be disabled/enabled (readonly doesn't work)
+    
     form.querySelectorAll('input[name="gender"]').forEach(r => r.disabled = viewMode);
 
     btnSave.style.display   = viewMode ? 'none' : 'inline-block';
