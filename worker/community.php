@@ -11,6 +11,18 @@ $page_title = 'Community - FixMyArea';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
+// Sort handling — same options as admin: recent | upvotes | comments
+$sort = trim((string)($_GET['sort'] ?? 'recent'));
+if (!in_array($sort, ['recent', 'upvotes', 'comments'], true)) {
+  $sort = 'recent';
+}
+
+$orderBy = match($sort) {
+  'upvotes'  => 'upvotes DESC, i.created_at DESC, i.issue_id DESC',
+  'comments' => 'comments_count DESC, i.created_at DESC, i.issue_id DESC',
+  default    => 'i.created_at DESC, i.issue_id DESC',
+};
+
 $sql = "
 SELECT
   i.issue_id,
@@ -30,7 +42,7 @@ LEFT JOIN (
   FROM comments
   GROUP BY issue_id
 ) c ON c.issue_id = i.issue_id
-ORDER BY i.created_at DESC, i.issue_id DESC
+ORDER BY {$orderBy}
 LIMIT 50
 ";
 
@@ -47,11 +59,18 @@ function h(?string $s): string {
     <h1 class="fw-bold mb-0" style="font-size: 2.4rem;">Community</h1>
 
     <div class="d-flex align-items-center gap-3 flex-wrap">
-      <div class="text-muted small">
-        Sort: <span class="fw-semibold">Recently Added</span>
-      </div>
 
-      <!-- ✅ NEW: View Leaderboard button (same style as authority) -->
+      <!-- Functional sort dropdown — matches admin/community.php -->
+      <form method="GET" class="d-flex align-items-center gap-2 small">
+        <label class="text-muted mb-0">Sort:</label>
+        <select name="sort" class="form-select form-select-sm" style="width:auto;"
+                onchange="this.form.submit()">
+          <option value="recent"   <?= $sort === 'recent'   ? 'selected' : '' ?>>Recently Added</option>
+          <option value="upvotes"  <?= $sort === 'upvotes'  ? 'selected' : '' ?>>Most Upvoted</option>
+          <option value="comments" <?= $sort === 'comments' ? 'selected' : '' ?>>Most Commented</option>
+        </select>
+      </form>
+
       <a class="btn btn-brand btn-sm" href="<?= BASE_URL ?>/worker/leaderboard.php">
         View Leaderboard
       </a>
@@ -78,8 +97,8 @@ function h(?string $s): string {
               </div>
 
               <div class="mt-2 d-flex flex-wrap gap-4 text-muted small">
-                <div><?= (int)$r['upvotes'] ?> upvotes</div>
-                <div><?= (int)$r['comments_count'] ?> comments</div>
+                <span>⬆ <?= (int)$r['upvotes'] ?> upvotes</span>
+                <span><i class="bi bi-chat-left-text-fill"></i> <?= (int)$r['comments_count'] ?> comments</span>
               </div>
             </div>
 

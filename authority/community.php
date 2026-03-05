@@ -45,12 +45,16 @@ if ($myAreaId <= 0) {
   exit;
 }
 
-$sort = (string)($_GET['sort'] ?? 'recent');
-$sort = in_array($sort, ['recent', 'top'], true) ? $sort : 'recent';
+$sort = trim((string)($_GET['sort'] ?? 'recent'));
+if (!in_array($sort, ['recent', 'upvotes', 'comments'], true)) {
+  $sort = 'recent';
+}
 
-$orderSql = ($sort === 'top')
-  ? "vote_count DESC, i.created_at DESC, i.issue_id DESC"
-  : "i.created_at DESC, i.issue_id DESC";
+$orderSql = match($sort) {
+  'upvotes'  => 'vote_count DESC, i.created_at DESC, i.issue_id DESC',
+  'comments' => 'comment_count DESC, i.created_at DESC, i.issue_id DESC',
+  default    => 'i.created_at DESC, i.issue_id DESC',
+};
 
 $sql = "
   SELECT
@@ -88,15 +92,16 @@ require_once __DIR__ . '/../includes/navbar.php';
   <div class="container py-4">
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-      <h2 class="fw-bold mb-0">COMMUNITY - <?= h($myAreaName ?: 'Designated Area') ?></h2>
+      <h2 class="fw-bold mb-0">Community - <?= h($myAreaName ?: 'Designated Area') ?></h2>
 
       <!-- Right side controls: Sort + Leaderboard button -->
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <form method="GET" class="d-flex align-items-center gap-2 mb-0">
           <label class="text-muted small mb-0">Sort:</label>
-          <select name="sort" class="form-select form-select-sm" style="width: 180px;" onchange="this.form.submit()">
-            <option value="recent" <?= $sort === 'recent' ? 'selected' : '' ?>>Recently Added</option>
-            <option value="top" <?= $sort === 'top' ? 'selected' : '' ?>>Most Upvoted</option>
+          <select name="sort" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+            <option value="recent"   <?= $sort === 'recent'   ? 'selected' : '' ?>>Recently Added</option>
+            <option value="upvotes"  <?= $sort === 'upvotes'  ? 'selected' : '' ?>>Most Upvoted</option>
+            <option value="comments" <?= $sort === 'comments' ? 'selected' : '' ?>>Most Commented</option>
           </select>
         </form>
 
@@ -132,8 +137,8 @@ require_once __DIR__ . '/../includes/navbar.php';
                 </div>
 
                 <div class="mt-2 d-flex flex-wrap gap-3 text-muted small align-items-center">
-                  <span><?= $votes ?> upvotes</span>
-                  <span><?= $comments ?> comments</span>
+                  <span>⬆ <?= $votes ?> upvotes</span>
+                  <span><i class="bi bi-chat-left-text-fill"></i> <?= $comments ?> comments</span>
                 </div>
               </div>
 

@@ -94,7 +94,7 @@ $workerDisplayId = 'WORK' . str_pad((string)$userId, 3, '0', STR_PAD_LEFT);
     </div>
 
     <div class="text-center text-muted small mb-4">
-      Field Worker ID: <?= h($workerDisplayId) ?>
+      Maintenance Technician ID: <?= h($workerDisplayId) ?>
     </div>
 
     <form method="POST" action="<?= BASE_URL ?>/actions/profile_update.php" id="profileForm" novalidate>

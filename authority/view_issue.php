@@ -17,6 +17,16 @@ if ($userId <= 0) {
 }
 
 function h($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function roleLabel(string $role): string {
+  return match(strtolower(trim($role))) {
+    'citizen'                              => 'Tenant',
+    'worker', 'field worker',
+    'field_worker', 'fieldworker'          => 'Maintenance Technician',
+    'authority', 'local authority'         => 'Property Manager',
+    'admin'                                => 'Admin',
+    default                                => ucfirst($role),
+  };
+}
 function fileUrl(string $path): string {
   $path = trim($path);
   if ($path === '') return '';
@@ -114,26 +124,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   try {
     $pdo->beginTransaction();
 
-    $chk = $pdo->prepare("
-      SELECT assignment_id
-      FROM assignments
+    // Cancel any existing active assignments so authority can reassign freely
+    $pdo->prepare("
+      UPDATE assignments
+      SET assignment_status = 'CANCELLED'
       WHERE issue_id = ?
         AND assignment_status IN ('ASSIGNED','ACCEPTED')
-      ORDER BY assigned_at DESC, assignment_id DESC
-      LIMIT 1
-    ");
-    $chk->execute([$postIssueId]);
-    $already = $chk->fetchColumn();
-
-    if ($already) {
-      $pdo->rollBack();
-      $msg = 'This issue already has an active assignment.';
-      if ($ajax) jsonOut(['ok' => false, 'type' => 'warning', 'msg' => $msg], 409);
-
-      $_SESSION['flash'] = ['type' => 'warning', 'msg' => $msg];
-      header("Location: " . BASE_URL . "/authority/view_issue.php?issue_id=" . $issueId);
-      exit;
-    }
+    ")->execute([$postIssueId]);
 
     $st = $pdo->prepare("
       SELECT i.reporter_user_id, u.name AS worker_name, u.email AS worker_email
@@ -319,10 +316,16 @@ $currentStatus = (string)$issue['status'];
 
 /* Timeline */
 $st = $pdo->prepare("
-  SELECT status, note, created_at
-  FROM issue_status_history
-  WHERE issue_id = ?
-  ORDER BY created_at ASC
+  SELECT
+    h.status,
+    h.note,
+    h.created_at,
+    u.name  AS changed_by_name,
+    u.role  AS changed_by_role
+  FROM issue_status_history h
+  LEFT JOIN users u ON u.user_id = h.changed_by_user_id
+  WHERE h.issue_id = ?
+  ORDER BY h.created_at ASC
 ");
 $st->execute([$issueId]);
 $timeline = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -334,6 +337,10 @@ require_once __DIR__ . '/../includes/navbar.php';
 
 <div class="container py-4 app-container">
 
+  <div class="mb-3">
+    <a class="btn btn-outline-brand btn-sm" href="<?= BASE_URL ?>/authority/area_issues.php">← Back to Issues</a>
+  </div>
+
   <div id="flashArea">
     <?php if ($flash): ?>
       <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>">
@@ -342,213 +349,216 @@ require_once __DIR__ . '/../includes/navbar.php';
     <?php endif; ?>
   </div>
 
-  <div class="card-dark p-3 p-md-4">
-
-    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+  <!-- ── Header card: title + meta + upvotes ── -->
+  <div class="card-dark p-3 p-md-4 mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
       <div>
         <h3 class="fw-bold mb-2">
-          Issue ID: #<?= (int)$issue['issue_id'] ?> - &lt;<?= h($issue['title']) ?>&gt;
+          Issue ID: #<?= (int)$issue['issue_id'] ?> &mdash; <?= h($issue['title']) ?>
         </h3>
-
-        <div class="meta-row">
-          <div class="meta"><span class="fw-semibold text-light">Reported by:</span> <?= h($issue['reporter_name']) ?></div>
-          <div class="meta"><span class="fw-semibold text-light">Category:</span> <?= h($issue['category_name'] ?? '—') ?></div>
-          <div class="meta"><span class="fw-semibold text-light">Branch:</span> <?= h($issue['area_name'] ?? '—') ?></div>
-          <div class="meta"><span class="fw-semibold text-light">Unit Number:</span> <?= h($issue['unit_number'] ?? '—') ?></div>
-          <div class="meta"><span class="fw-semibold text-light">Status:</span> <?= h($currentStatus) ?></div>
-
-          <form class="d-flex flex-wrap gap-2 align-items-center" method="POST" action="<?= BASE_URL ?>/actions/authority_update_status.php">
-            <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
-            <select name="status" class="form-select" style="max-width:190px;" required>
-              <?php foreach ($allowedStatuses as $s): ?>
-                <option value="<?= h($s) ?>" <?= ($s === $currentStatus) ? 'selected' : '' ?>><?= h($s) ?></option>
-              <?php endforeach; ?>
-            </select>
-            <button class="btn btn-outline-brand btn-sm" type="submit">Update Status</button>
-          </form>
+        <div class="text-muted small">
+          Reported by: <span class="fw-semibold text-body"><?= h($issue['reporter_name']) ?></span>
+          &nbsp;|&nbsp; Category: <span class="fw-semibold text-body"><?= h($issue['category_name'] ?? '—') ?></span>
+          &nbsp;|&nbsp; Branch: <span class="fw-semibold text-body"><?= h($issue['area_name'] ?? '—') ?></span>
+          &nbsp;|&nbsp; Unit: <span class="fw-semibold text-body"><?= h($issue['unit_number'] ?? '—') ?></span>
+          &nbsp;|&nbsp; Status: <span class="badge bg-secondary"><?= h($currentStatus) ?></span>
         </div>
       </div>
-
-      <div class="upvote-box">
-        <div class="tri"></div>
-        <div class="text-end">
-          <div class="fw-semibold"><?= (int)$upvotes ?> Upvotes</div>
-        </div>
+      <div class="text-end flex-shrink-0">
+        <div class="text-muted small">Upvotes</div>
+        <div class="fs-4 fw-bold"><?= (int)$upvotes ?></div>
       </div>
     </div>
 
+    <!-- Update Status -->
     <div class="mt-3">
-      <div class="card-dark p-3">
-        <label class="form-label mb-1">Assign Field Worker</label>
-
-        <div id="currentAssignBlock" class="text-muted small mb-2" style="<?= $activeAssign ? '' : 'display:none;' ?>">
-          Currently assigned to:
-          <span class="text-light fw-semibold" id="assignedWorkerName"><?= h($activeAssign['worker_name'] ?? '') ?></span>
-          <span id="assignedWorkerEmail"><?= !empty($activeAssign['worker_email']) ? ' (' . h($activeAssign['worker_email']) . ')' : '' ?></span>
-          (<span id="assignedStatus"><?= h($activeAssign['assignment_status'] ?? 'ASSIGNED') ?></span>)
-        </div>
-
-        <form id="assignForm" method="POST" class="d-flex flex-wrap gap-2 align-items-center">
-          <input type="hidden" name="action" value="assign_worker">
-          <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
-
-          <select id="workerSelect" name="field_worker_id" class="form-select" style="max-width:360px;"
-                  <?= $activeAssign ? 'disabled' : '' ?> required>
-            <option value="">Select worker</option>
-            <?php foreach ($fieldWorkers as $w): ?>
-              <option value="<?= (int)$w['user_id'] ?>">
-                <?= h($w['name'] . ' (' . $w['email'] . ')') ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-
-          <button id="assignBtn" class="btn btn-brand btn-sm" type="submit" <?= $activeAssign ? 'disabled' : '' ?>>
-            Assign
-          </button>
-
-          <span id="assignSpinner" class="text-muted small" style="display:none;">Assigning…</span>
-        </form>
-      </div>
+      <form class="d-flex flex-wrap gap-2 align-items-center" method="POST" action="<?= BASE_URL ?>/actions/authority_update_status.php">
+        <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
+        <select name="status" class="form-select" style="max-width:200px;" required>
+          <?php foreach ($allowedStatuses as $s): ?>
+            <option value="<?= h($s) ?>" <?= ($s === $currentStatus) ? 'selected' : '' ?>><?= h($s) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <button class="btn btn-outline-brand btn-sm" type="submit">Update Status</button>
+      </form>
     </div>
 
-    <hr style="border-color: var(--border);" class="my-3">
+    <!-- Assign Field Worker -->
+    <div class="mt-3">
 
-    <div class="row g-3">
-      <div class="col-12 col-lg-7">
-        <div class="fw-semibold mb-2">Issue Photos &amp; Description:</div>
-
-        <div class="photo-grid mb-3">
-          <?php
-            $slice = array_slice($reportPhotos, 0, 3);
-            $count = count($slice);
-          ?>
-
-          <?php if ($count === 0): ?>
-            <?php for ($i=0; $i<3; $i++): ?>
-              <div class="photo text-muted small ph-empty">
-                <i class="bi bi-card-image"></i>
-              </div>
-            <?php endfor; ?>
-          <?php else: ?>
-            <?php foreach ($slice as $p): ?>
-              <div class="photo"><img src="<?= h(fileUrl((string)$p)) ?>" alt="Issue photo"></div>
-            <?php endforeach; ?>
-            <?php for ($i=$count; $i<3; $i++): ?>
-              <div class="photo text-muted small ph-empty">
-                <i class="bi bi-card-image"></i>
-              </div>
-            <?php endfor; ?>
-          <?php endif; ?>
-        </div>
-
-        <div class="desc-box">
-          <?= nl2br(h($issue['description'] ?? '')) ?>
-        </div>
-      </div>
-
-      <div class="col-12 col-lg-5">
-        <div class="fw-semibold mb-2">Proof of Fix:</div>
-
-        <div class="photo-grid">
-          <?php
-            $pslice = array_slice($proofPhotos, 0, 3);
-            $pcount = count($pslice);
-          ?>
-
-          <?php if ($pcount === 0): ?>
-            <?php for ($i=0; $i<3; $i++): ?>
-              <div class="photo text-muted small ph-empty">
-                <i class="bi bi-card-image"></i>
-              </div>
-            <?php endfor; ?>
-          <?php else: ?>
-            <?php foreach ($pslice as $p): ?>
-              <div class="photo"><img src="<?= h(fileUrl((string)$p)) ?>" alt="Proof photo"></div>
-            <?php endforeach; ?>
-            <?php for ($i=$pcount; $i<3; $i++): ?>
-              <div class="photo text-muted small ph-empty">
-                <i class="bi bi-card-image"></i>
-              </div>
-            <?php endfor; ?>
-          <?php endif; ?>
-        </div>
-
-        <?php if (empty($proofPhotos)): ?>
-          <div class="text-muted small mt-2">No proof photos uploaded yet.</div>
+      <div class="text-muted small mb-2" id="currentAssignBlock">
+        <?php if ($activeAssign): ?>
+          Assigned to: <span class="fw-semibold text-body" id="assignedWorkerName"><?= h($activeAssign['worker_name'] ?? '') ?></span>
+        <?php else: ?>
+          <span id="assignedWorkerName">Unassigned</span>
         <?php endif; ?>
       </div>
-    </div>
 
-    <hr style="border-color: var(--border);" class="my-3">
+      <form id="assignForm" method="POST" action="<?= BASE_URL ?>/authority/view_issue.php?issue_id=<?= (int)$issueId ?>"
+            class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="hidden" name="action" value="assign_worker">
+        <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
 
-    <div class="fw-bold mb-2">Service Ratings:</div>
-    <div class="card-dark p-3 mb-3">
-      <div class="d-flex flex-column gap-2">
-        <div class="ratings-row">
-          <div class="text-muted">Overall Issue Fixation:</div>
-          <div><?= stars($overall) ?></div>
-        </div>
-        <div class="ratings-row">
-          <div class="text-muted">Field Worker:</div>
-          <div><?= stars($worker) ?></div>
-        </div>
-        <div class="ratings-row">
-          <div class="text-muted">Local Authority:</div>
-          <div><?= stars($authority) ?></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card-dark p-3 mb-3">
-      <div class="fw-semibold mb-2">Status Timeline</div>
-
-      <?php if (empty($timeline)): ?>
-        <div class="text-muted small">No history yet.</div>
-      <?php else: ?>
-        <ul class="mb-0">
-          <?php foreach ($timeline as $t): ?>
-            <li class="small mb-2">
-              <strong><?= h($t['status'] ?? '') ?></strong>
-              <span class="text-muted"> — <?= h($t['created_at'] ?? '') ?></span>
-              <?php if (!empty($t['note'])): ?>
-                <div class="text-muted"><?= h($t['note']) ?></div>
-              <?php endif; ?>
-            </li>
+        <select id="workerSelect" name="field_worker_id" class="form-select" style="max-width:360px;" required>
+          <option value="">Select worker…</option>
+          <?php foreach ($fieldWorkers as $w): ?>
+            <option value="<?= (int)$w['user_id'] ?>">
+              <?= h($w['name'] . ' (' . $w['email'] . ')') ?>
+            </option>
           <?php endforeach; ?>
-        </ul>
+        </select>
+
+        <button id="assignBtn" class="btn btn-brand btn-sm" type="submit">
+          <?= $activeAssign ? 'Reassign' : 'Assign' ?>
+        </button>
+        <span id="assignSpinner" class="text-muted small" style="display:none;">Assigning…</span>
+      </form>
+
+      <?php if (empty($fieldWorkers)): ?>
+        <div class="text-muted small mt-1">No active field workers found in this area.</div>
       <?php endif; ?>
     </div>
-
-    <div class="fw-semibold mb-2">Comments</div>
-
-    <form method="POST" action="<?= BASE_URL ?>/actions/comment_add.php" class="mb-3">
-      <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
-      <input type="hidden" name="return_to" value="authority/view_issue.php?issue_id=<?= (int)$issueId ?>">
-      <textarea name="comment_text" class="form-control comment-box" placeholder="Write a comment..." required></textarea>
-      <div class="d-flex justify-content-end mt-2">
-        <button class="btn btn-brand btn-sm" type="submit">Add Comment</button>
-      </div>
-    </form>
-
-    <div class="card-dark p-3">
-      <?php if (empty($comments)): ?>
-        <div class="text-muted">No comments yet.</div>
-      <?php else: ?>
-        <div class="d-flex flex-column gap-3">
-          <?php foreach ($comments as $c): ?>
-            <div style="border-bottom:1px solid var(--border); padding-bottom:10px;">
-              <div class="d-flex justify-content-between gap-2">
-                <div class="fw-semibold"><?= h($c['name'] ?? '') ?></div>
-                <div class="text-muted small"><?= h($c['created_at'] ?? '') ?></div>
-              </div>
-              <div class="text-muted"><?= nl2br(h($c['comment_text'] ?? '')) ?></div>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
-    </div>
-
   </div>
+
+  <!-- ── Main two-column layout ── -->
+  <div class="row g-4">
+
+    <!-- LEFT col: Photos + Description + Comments -->
+    <div class="col-12 col-lg-8">
+
+      <!-- Issue Photos & Description -->
+      <div class="card-dark p-4 mb-4">
+        <h5 class="fw-semibold mb-3">Issue Photos &amp; Description</h5>
+
+        <?php if (!empty($reportPhotos)): ?>
+          <div class="d-flex flex-wrap gap-3 mb-3">
+            <?php foreach ($reportPhotos as $p): ?>
+              <a href="<?= h(fileUrl((string)$p)) ?>" target="_blank" rel="noreferrer" class="text-decoration-none">
+                <img src="<?= h(fileUrl((string)$p)) ?>" alt="Report photo"
+                     style="width:130px;height:100px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">
+              </a>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="text-muted small mb-3">No report photos uploaded.</div>
+        <?php endif; ?>
+
+        <div class="text-body" style="white-space:pre-wrap;"><?= nl2br(h($issue['description'] ?? '')) ?></div>
+      </div>
+
+      <!-- Proof of Fix -->
+      <div class="card-dark p-4 mb-4">
+        <h5 class="fw-semibold mb-3">Proof of Fix</h5>
+
+        <?php if (!empty($proofPhotos)): ?>
+          <div class="d-flex flex-wrap gap-3">
+            <?php foreach ($proofPhotos as $p): ?>
+              <a href="<?= h(fileUrl((string)$p)) ?>" target="_blank" rel="noreferrer" class="text-decoration-none">
+                <img src="<?= h(fileUrl((string)$p)) ?>" alt="Proof photo"
+                     style="width:130px;height:100px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">
+              </a>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="text-muted small">No proof photos uploaded yet.</div>
+        <?php endif; ?>
+      </div>
+
+      <!-- Comments -->
+      <div class="card-dark p-4">
+        <h5 class="fw-semibold mb-3">Comments</h5>
+
+        <form method="POST" action="<?= BASE_URL ?>/actions/comment_add.php" class="mb-4">
+          <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
+          <input type="hidden" name="return_to" value="authority/view_issue.php?issue_id=<?= (int)$issueId ?>">
+          <textarea name="comment_text" class="form-control" rows="3"
+                    placeholder="Write a comment…" required></textarea>
+          <div class="d-flex justify-content-end mt-2">
+            <button class="btn btn-brand btn-sm" type="submit">Add Comment</button>
+          </div>
+        </form>
+
+        <?php if (empty($comments)): ?>
+          <div class="text-muted small">No comments yet.</div>
+        <?php else: ?>
+          <div class="d-flex flex-column gap-3">
+            <?php foreach ($comments as $c): ?>
+              <div class="p-3" style="border:1px solid var(--border);border-radius:12px;">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div class="fw-semibold"><?= h($c['name'] ?? '') ?></div>
+                  <div class="text-muted small"><?= h($c['created_at'] ?? '') ?></div>
+                </div>
+                <div class="text-muted mt-1"><?= nl2br(h($c['comment_text'] ?? '')) ?></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </div>
+
+    </div>
+
+    <!-- RIGHT col: Timeline + Ratings -->
+    <div class="col-12 col-lg-4">
+
+      <!-- Timeline -->
+      <div class="card-dark p-4 mb-4">
+        <h5 class="fw-semibold mb-3">Timeline</h5>
+
+        <?php if (empty($timeline)): ?>
+          <div class="text-muted small">No history yet.</div>
+        <?php else: ?>
+          <div class="d-flex flex-column gap-3">
+            <?php foreach ($timeline as $t): ?>
+              <?php
+                $byName = !empty($t['changed_by_name']) ? $t['changed_by_name'] : null;
+                $byRole = !empty($t['changed_by_role']) ? roleLabel($t['changed_by_role']) : null;
+                // Strip generic trailing "by <role>" phrases that will be replaced with the real name
+                $noteText = trim((string)($t['note'] ?? ''));
+                $noteText = preg_replace('/\s+by\s+(citizen|field worker|local authority|authority|worker|admin)\.?$/i', '', $noteText);
+                $noteText = trim($noteText);
+                if ($byName) {
+                  $suffix = h($byName) . ($byRole ? ' <span class="text-muted">(' . h($byRole) . ')</span>' : '');
+                  $displayNote = $noteText !== '' ? h($noteText) . ' by ' . $suffix : 'Updated by ' . $suffix;
+                } else {
+                  $displayNote = $noteText !== '' ? h($noteText) : null;
+                }
+              ?>
+              <div class="p-3" style="border:1px solid var(--border);border-radius:12px;">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <span class="badge bg-secondary"><?= h($t['status'] ?? '') ?></span>
+                  <span class="text-muted small"><?= h($t['created_at'] ?? '') ?></span>
+                </div>
+                <?php if ($displayNote): ?>
+                  <div class="small mt-2"><?= $displayNote ?></div>
+                <?php endif; ?>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </div>
+
+      <!-- Service Ratings -->
+      <div class="card-dark p-4">
+        <h5 class="fw-semibold mb-3">Service Ratings</h5>
+        <div class="d-flex flex-column gap-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted">Overall Issue Fixation:</div>
+            <div><?= stars($overall) ?></div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted">Maintenance Technician:</div>
+            <div><?= stars($worker) ?></div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted">Property Manager:</div>
+            <div><?= stars($authority) ?></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -588,7 +598,8 @@ require_once __DIR__ . '/../includes/navbar.php';
       showFlash('warning', 'Please select a worker.');
       return;
     }
-    if (!confirm('Assign this field worker to the issue?')) return;
+    const isReassign = currentBlock && currentBlock.style.display !== 'none' && document.getElementById('assignedWorkerName')?.textContent?.trim();
+    if (!confirm(isReassign ? 'Reassign this issue to the selected worker? The current assignment will be replaced.' : 'Assign this field worker to the issue?')) return;
 
     btn.disabled = true;
     spn.style.display = 'inline';
@@ -620,14 +631,15 @@ require_once __DIR__ . '/../includes/navbar.php';
       showFlash(data.type || 'success', data.msg || 'Assigned.');
 
       if (data.worker) {
-        currentBlock.style.display = '';
-        wName.textContent = data.worker.name || 'Field Worker';
-        wEmail.textContent = data.worker.email ? (' (' + data.worker.email + ')') : '';
-        wStatus.textContent = data.worker.status || 'ASSIGNED';
+        // Update "Assigned to: Name" line
+        currentBlock.innerHTML = 'Assigned to: <span class="fw-semibold text-body" id="assignedWorkerName">' + esc(data.worker.name || 'Maintenance Technician') + '</span>';
       }
 
-      btn.disabled = true;
-      sel.disabled = true;
+      // Keep enabled — authority can reassign at any time
+      btn.disabled = false;
+      sel.disabled = false;
+      btn.textContent = 'Reassign';
+      sel.value = '';
       spn.style.display = 'none';
 
     } catch(err){
@@ -640,4 +652,4 @@ require_once __DIR__ . '/../includes/navbar.php';
 })();
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>

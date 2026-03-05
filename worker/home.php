@@ -128,7 +128,7 @@ function niceStatus(string $s): string { return strtoupper(trim($s)); }
     <div class="col-12 col-lg-6">
       <div class="card-dark p-4 h-100">
         <div class="mb-3">
-          <div class="text-muted">Assigned Area / Council</div>
+          <div class="text-muted">Assigned Area</div>
           <div class="fw-semibold fs-5"><?= h($areaName) ?></div>
         </div>
 

@@ -97,7 +97,7 @@ if ($qRaw !== '') {
 
 /* Build SQL safely (no HY093) */
 $sql = "
-  SELECT u.user_id, u.name, u.email, u.status, a.area_name
+  SELECT u.user_id, u.name, u.email, u.nic, u.dob, u.phone, u.gender, u.status, a.area_name
   FROM users u
   LEFT JOIN areas a ON a.area_id = u.area_id
   WHERE u.area_id = :area_id
@@ -174,10 +174,7 @@ require_once __DIR__ . '/../includes/navbar.php';
           </select>
         </div>
 
-        <div class="col-12 col-md-3">
-          <label class="form-label">Branch</label>
-          <input class="form-control" value="<?= h($myAreaName ?: 'My Area') ?>" readonly>
-        </div>
+     
 
         <div class="col-12 col-md-2 d-flex gap-2">
           <button class="btn btn-brand w-100" type="submit">Apply</button>
@@ -192,16 +189,20 @@ require_once __DIR__ . '/../includes/navbar.php';
         <table class="table table-dark-custom align-middle mb-0">
           <thead>
             <tr>
-              <th style="width:160px;">Field Worker ID</th>
+              <th style="width:140px;">Technician ID</th>
               <th>Name</th>
-              <th style="min-width:180px;">Branch</th>
-              <th style="width:120px;">Status</th>
-              <th style="width:190px;">Action</th>
+              <th>Email</th>
+              <th>NIC</th>
+              <th>DOB</th>
+              <th>Phone</th>
+              <th>Gender</th>
+              <th style="width:100px;">Status</th>
+              <th style="width:160px;">Action</th>
             </tr>
           </thead>
           <tbody>
           <?php if (empty($users)): ?>
-            <tr><td colspan="5" class="text-muted">No users found.</td></tr>
+            <tr><td colspan="9" class="text-muted">No users found.</td></tr>
           <?php else: ?>
             <?php foreach ($users as $u): ?>
               <?php
@@ -210,14 +211,15 @@ require_once __DIR__ . '/../includes/navbar.php';
               ?>
               <tr>
                 <td><?= h($fwId) ?></td>
-                <td>
-                  <div class="fw-semibold"><?= h($u['name']) ?></div>
-                  <div class="text-muted small"><?= h($u['email']) ?></div>
-                </td>
-                <td><?= h($u['area_name'] ?? $myAreaName) ?></td>
+                <td><?= h($u['name']) ?></td>
+                <td><?= h($u['email']) ?></td>
+                <td><?= h($u['nic'] ?? '—') ?></td>
+                <td><?= h($u['dob'] ?? '—') ?></td>
+                <td><?= h($u['phone'] ?? '—') ?></td>
+                <td><?= h(ucfirst((string)($u['gender'] ?? '—'))) ?></td>
                 <td><?= $isActive ? 'Active' : 'Inactive' ?></td>
                 <td class="d-flex gap-2">
-                  <button class="btn btn-sm btn-outline-brand" type="button" disabled>View</button>
+                  
 
                   <form method="POST" class="m-0">
                     <input type="hidden" name="action" value="toggle_user">
