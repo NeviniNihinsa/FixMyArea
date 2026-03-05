@@ -149,7 +149,7 @@ function stars(?int $val): string {
         Reported by: <span class="fw-semibold"><?= h($issue['reporter_name'] ?? $issue['reporter_email'] ?? '—') ?></span>
         &nbsp; • &nbsp; Category: <span class="fw-semibold"><?= h($issue['category_name'] ?? '—') ?></span>
         &nbsp; • &nbsp; Status: <span class="fw-semibold"><?= h((string)$issue['status']) ?></span>
-        &nbsp; • &nbsp; Address: <span class="fw-semibold"><?= h($issue['unit_number'] ?? '—') ?></span>
+        &nbsp; • &nbsp; Unit: <span class="fw-semibold"><?= h($issue['unit_number'] ?? '—') ?></span>
       </div>
     </div>
 
@@ -213,33 +213,34 @@ function stars(?int $val): string {
           </div>
         </div>
 
-        <div class="d-flex gap-2 flex-wrap mt-4">
-          <!-- Update Status -->
-          <form method="POST" action="<?= BASE_URL ?>/actions/worker_issue_update_status.php" class="d-flex gap-2 flex-wrap m-0">
+        <hr class="my-4" style="border-color:rgba(255,255,255,0.10);">
+
+        <!-- Update Status -->
+        <div class="mb-3">
+      
+          <form method="POST" action="<?= BASE_URL ?>/actions/worker_issue_update_status.php"
+                class="d-flex align-items-center gap-2 m-0">
             <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
-
             <?php $curStatus = strtoupper((string)($issue['status'] ?? '')); ?>
-            <select name="status" class="form-select" style="min-width:220px;" required>
-              <option value="" disabled>Update status...</option>
+            <select name="status" class="form-select" style="max-width:220px;" required>
+              <option value="" disabled>Select status...</option>
               <option value="IN_PROGRESS" <?= $curStatus === 'IN_PROGRESS' ? 'selected' : '' ?>>IN_PROGRESS</option>
-              <option value="COMPLETED" <?= $curStatus === 'COMPLETED' ? 'selected' : '' ?>>COMPLETED</option>
+              <option value="COMPLETED"   <?= $curStatus === 'COMPLETED'   ? 'selected' : '' ?>>COMPLETED</option>
             </select>
-
             <button class="btn btn-outline-brand" type="submit">Update Status</button>
           </form>
+        </div>
 
-          <!-- Upload Proof -->
+        <!-- Upload Proof -->
+        <div>
+          
           <form method="POST" action="<?= BASE_URL ?>/actions/worker_issue_upload_proof.php"
-                enctype="multipart/form-data" class="d-flex gap-2 flex-wrap m-0">
-            <input type="hidden" name="issue_id" value="<?= (int)$issueId ?>">
-
-            <!-- Only PROOF -->
-            <select name="photo_type" class="form-select" style="min-width:220px;" required>
-              <option value="" disabled selected>Proof type...</option>
-              <option value="PROOF">PROOF</option>
-            </select>
-
-            <input type="file" name="photo" class="form-control" accept="image/jpeg,image/png,image/webp" required>
+                enctype="multipart/form-data"
+                class="d-flex align-items-center gap-2 m-0">
+            <input type="hidden" name="issue_id"   value="<?= (int)$issueId ?>">
+            <input type="hidden" name="photo_type" value="PROOF">
+            <input type="file" name="photo" class="form-control" style="max-width:320px;"
+                   accept="image/jpeg,image/png,image/webp" required>
             <button class="btn btn-outline-brand" type="submit">Upload Proof</button>
           </form>
         </div>
@@ -287,13 +288,18 @@ function stars(?int $val): string {
         <?php else: ?>
           <div class="d-flex flex-column gap-3">
             <?php foreach ($history as $hrow): ?>
+              <?php
+                $isInitialReport = (strtolower(trim((string)($hrow['note'] ?? ''))) === 'issue reported by citizen');
+              ?>
               <div class="card-dark p-3">
                 <div class="fw-semibold"><?= h((string)$hrow['status']) ?></div>
                 <div class="text-muted small"><?= h((string)$hrow['created_at']) ?></div>
-                <?php if (!empty($hrow['changed_by'])): ?>
+                <?php if (!$isInitialReport && !empty($hrow['changed_by'])): ?>
                   <div class="text-muted small">By: <?= h((string)$hrow['changed_by']) ?></div>
                 <?php endif; ?>
-                <?php if (!empty($hrow['note'])): ?>
+                <?php if ($isInitialReport): ?>
+                  <div class="text-muted small mt-2">Issue reported</div>
+                <?php elseif (!empty($hrow['note'])): ?>
                   <div class="text-muted small mt-2"><?= h((string)$hrow['note']) ?></div>
                 <?php endif; ?>
               </div>
@@ -311,12 +317,12 @@ function stars(?int $val): string {
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="text-muted">Field Worker:</div>
+          <div class="text-muted">Maintenance Technician:</div>
           <div><?= stars($worker) ?></div>
         </div>
 
         <div class="d-flex justify-content-between align-items-center">
-          <div class="text-muted">Local Authority:</div>
+          <div class="text-muted">Property Manager:</div>
           <div><?= stars($authority) ?></div>
         </div>
       </div>

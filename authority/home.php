@@ -138,9 +138,6 @@ if ($areaId > 0) {
 
   <div class="mb-4">
     <h2 class="fw-bold mb-1">Welcome <?= h($userName) ?></h2>
-    <div class="text-muted">
-      Reported issues in area: <span class="fw-semibold"><?= h($areaName) ?></span>
-    </div>
   </div>
 
   <div class="row g-4">
@@ -159,7 +156,7 @@ if ($areaId > 0) {
     <!-- Stats -->
     <div class="col-12 col-lg-5">
       <div class="card-dark p-4 h-100">
-        <div class="fw-semibold mb-3">Reported Issues in area</div>
+        <div class="fw-semibold mb-3">Reported Issues in <?= h($areaName) ?></div>
 
         <div class="row g-3">
           <div class="col-6">
@@ -202,7 +199,7 @@ if ($areaId > 0) {
 
   <!-- Recently Updates -->
   <div class="mt-4">
-    <h5 class="fw-semibold mb-3">Recently Updates</h5>
+    <h5 class="fw-semibold mb-3">Recent Updates</h5>
 
     <div class="card-dark p-3 p-md-4">
       <div class="table-responsive">
@@ -214,7 +211,7 @@ if ($areaId > 0) {
               <th style="width:140px;">Category</th>
               <th style="width:140px;">Area branch</th>
               <th style="width:180px;">Reported By</th>
-              <th style="width:200px;">Assigned Field Worker</th>
+              <th style="width:200px;">Assigned To</th>
               <th style="width:120px;">Status</th>
               <th style="width:120px;">Action</th>
             </tr>
@@ -359,5 +356,4 @@ if ($areaId > 0) {
 })();
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
 <?php require_once __DIR__ . '/../includes/footer_internal.php'; ?>

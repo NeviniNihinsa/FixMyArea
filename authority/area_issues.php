@@ -212,7 +212,7 @@ require_once __DIR__ . '/../includes/navbar.php';
     <div>
       <h2 class="fw-bold mb-1">Area Issues</h2>
       <div class="text-muted small">
-        Showing issues for (Branch): <span class="fw-semibold"><?= h($myAreaName) ?></span>
+        Showing all issues in <span class="fw-semibold"><?= h($myAreaName) ?></span>
       </div>
     </div>
 
@@ -231,7 +231,7 @@ require_once __DIR__ . '/../includes/navbar.php';
         </div>
 
         <div class="col-6 col-md-4 col-lg-2">
-          <label class="form-label">Field Worker</label>
+          <label class="form-label">Technician</label>
           <select name="field_worker_id" class="form-select">
             <option value="0">All</option>
             <?php foreach ($fieldWorkers as $fw): ?>
@@ -298,10 +298,9 @@ require_once __DIR__ . '/../includes/navbar.php';
             <th style="width:90px;">Issue ID</th>
             <th style="width:170px;">Issue Date</th>
             <th style="min-width:240px;">Title</th>
-            <th style="width:160px;">Category</th>
-            <th style="min-width:180px;">Branch</th>
+            <th style="width:160px;">Category</th>            
             <th style="min-width:220px;">Reported By</th>
-            <th style="min-width:160px;">Field Worker</th>
+            <th style="min-width:160px;">Assigned To</th>
             <th style="width:130px;">Status</th>
             <th style="width:110px;">Action</th>
           </tr>
@@ -318,7 +317,6 @@ require_once __DIR__ . '/../includes/navbar.php';
               <td class="text-muted small"><?= h((string)$it['created_at']) ?></td>
               <td><?= h((string)$it['title']) ?></td>
               <td><?= h((string)($it['category_name'] ?? '')) ?></td>
-              <td class="area-wrap"><?= h((string)($it['area_name'] ?? '')) ?></td>
               <td><?= h((string)($it['reporter_email'] ?? '')) ?></td>
               <td><?= h((string)($it['field_worker_name'] ?? 'Not Assigned')) ?></td>
               <td><?= h((string)($it['status'] ?? '')) ?></td>
