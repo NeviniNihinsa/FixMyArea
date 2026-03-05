@@ -4,8 +4,9 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/constants.php';
 require_once __DIR__ . '/../config/helpers.php';
+require_once __DIR__ . '/../config/auth.php';
 
-session_start();
+ensure_session();
 
 $name = trim($_POST['name'] ?? '');
 $nic = trim($_POST['nic'] ?? '');
@@ -77,10 +78,12 @@ $stmt->execute([
   $hash
 ]);
 
-$_SESSION['user_id'] = (int)$pdo->lastInsertId();
-$_SESSION['name'] = $name;
-$_SESSION['email'] = $email;
-$_SESSION['role'] = 'citizen';
+login_user(
+  (int)$pdo->lastInsertId(),
+  'CITIZEN',
+  $name,
+  $email
+);
 
-header("Location: " . BASE_URL . "/citizen/home.php");
+redirect_by_role();
 exit;
