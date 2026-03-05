@@ -14,12 +14,16 @@ require_once __DIR__ . '/../includes/navbar.php';
 $userId = (int)($_SESSION['user_id'] ?? 0);
 
 // ── Filters ──
-$filterStatus = strtoupper(trim((string)($_GET['status'] ?? '')));
-$sort         = trim((string)($_GET['sort'] ?? 'newest'));
+$filterStatus   = strtoupper(trim((string)($_GET['status']    ?? '')));
+$filterLocation = trim((string)($_GET['location'] ?? ''));
+$sort           = trim((string)($_GET['sort']     ?? 'newest'));
 
 $allowedStatuses = ['PENDING', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CLOSED', 'REJECTED'];
 if ($filterStatus !== '' && !in_array($filterStatus, $allowedStatuses, true)) {
   $filterStatus = '';
+}
+if (!in_array($filterLocation, ['', 'common', 'private'], true)) {
+  $filterLocation = '';
 }
 if (!in_array($sort, ['newest', 'oldest', 'status'], true)) {
   $sort = 'newest';
@@ -39,20 +43,27 @@ if ($filterStatus !== '') {
   $where[]  = 'i.status = ?';
   $params[] = $filterStatus;
 }
+if ($filterLocation === 'common') {
+  $where[] = 'i.is_common = 1';
+} elseif ($filterLocation === 'private') {
+  $where[] = 'i.is_common = 0';
+}
 
 $whereSql = implode(' AND ', $where);
 
 $st = $pdo->prepare("
   SELECT
     i.issue_id, i.title, i.status, i.created_at,
+    i.is_common,
     c.category_name,
-    a.area_name,
+    ca.area_name AS common_area_name,
     u.email AS reporter_email,
+    u.address AS reporter_address,
     x.assignment_status
   FROM assignments x
   JOIN issues i ON i.issue_id = x.issue_id
   LEFT JOIN issue_categories c ON c.category_id = i.category_id
-  LEFT JOIN areas a ON a.area_id = i.area_id
+  LEFT JOIN common_areas ca ON ca.common_area_id = i.common_area_id
   LEFT JOIN users u ON u.user_id = i.reporter_user_id
   WHERE {$whereSql}
   ORDER BY {$orderBy}
@@ -96,6 +107,15 @@ function statusBadge(string $s): string {
       </div>
 
       <div>
+        <label class="form-label text-muted small mb-1">Location Type</label>
+        <select name="location" class="form-select form-select-sm" style="min-width:180px;">
+          <option value=""       <?= $filterLocation === ''        ? 'selected' : '' ?>>All Locations</option>
+          <option value="common" <?= $filterLocation === 'common'  ? 'selected' : '' ?>>Common Area</option>
+          <option value="private"<?= $filterLocation === 'private' ? 'selected' : '' ?>>Private Unit</option>
+        </select>
+      </div>
+
+      <div>
         <label class="form-label text-muted small mb-1">Sort By</label>
         <select name="sort" class="form-select form-select-sm" style="min-width:180px;">
           <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest First</option>
@@ -120,7 +140,7 @@ function statusBadge(string $s): string {
             <th>Issue ID</th>
             <th>Title</th>
             <th>Category</th>
-            <th>Area</th>
+            <th>Location</th>
             <th>Reported By</th>
             <th>Status</th>
             <th style="width:110px;">Action</th>
@@ -135,7 +155,19 @@ function statusBadge(string $s): string {
                 <td>#<?= (int)$r['issue_id'] ?></td>
                 <td><?= h($r['title']) ?></td>
                 <td><?= h($r['category_name'] ?? '—') ?></td>
-                <td><?= h($r['area_name'] ?? '—') ?></td>
+                <td>
+                  <?php if ((int)$r['is_common'] === 1): ?>
+                    <span class="badge bg-primary bg-opacity-75">Common</span>
+                    <?php if (!empty($r['common_area_name'])): ?>
+                      <br><small class="text-muted"><?= h($r['common_area_name']) ?></small>
+                    <?php endif; ?>
+                  <?php else: ?>
+                    <span class="badge bg-secondary bg-opacity-75">Private</span>
+                    <?php if (!empty($r['reporter_address'])): ?>
+                      <br><small class="text-muted"><?= h($r['reporter_address']) ?></small>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </td>
                 <td><?= h($r['reporter_email'] ?? '—') ?></td>
                 <td><span class="badge <?= statusBadge((string)$r['status']) ?>"><?= h(niceStatus((string)$r['status'])) ?></span></td>
                 <td>
@@ -161,7 +193,15 @@ function statusBadge(string $s): string {
               <span class="badge <?= statusBadge((string)$r['status']) ?>"><?= h(niceStatus((string)$r['status'])) ?></span>
             </div>
             <div class="text-muted small mt-1">
-              <?= h($r['category_name'] ?? '—') ?> • <?= h($r['area_name'] ?? '—') ?>
+              <?= h($r['category_name'] ?? '—') ?>
+              •
+              <?php if ((int)$r['is_common'] === 1): ?>
+                <span class="badge bg-primary bg-opacity-75">Common</span>
+                <?= !empty($r['common_area_name']) ? h($r['common_area_name']) : '' ?>
+              <?php else: ?>
+                <span class="badge bg-secondary bg-opacity-75">Private</span>
+                <?= !empty($r['reporter_address']) ? h($r['reporter_address']) : '' ?>
+              <?php endif; ?>
             </div>
             <div class="text-muted small">Reported by: <?= h($r['reporter_email'] ?? '—') ?></div>
             <div class="mt-2">
