@@ -52,7 +52,7 @@ try {
     ");
     $st->execute([$issueId, $status, $adminId, $historyNote]);
 
-    // Create notification to citizen (reporter)
+    // Create notification to tenant (reporter)
     $actionUrl = "/citizen/issue_view.php?issue_id=" . $issueId;
     $notifTitle = "Issue status updated";
     $notifMsg = "Your issue #{$issueId} ({$title}) status changed: {$oldStatus} → {$status}.";

@@ -146,7 +146,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fclose($out);
     exit;
   } catch (Throwable $e) {
-    // if assignments table doesn't exist yet, fail nicely
+    // if assignments table missing (joined in base query), fallback to export without assigned_to column
     $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Export failed (check assignments table exists).'];
     header("Location: " . BASE_URL . "/admin/manage_issues.php");
     exit;
@@ -214,7 +214,7 @@ function statusBadge(string $s): string {
     <div class="alert alert-<?= h($flash['type'] ?? 'info') ?>"><?= h($flash['msg'] ?? '') ?></div>
   <?php endif; ?>
 
-  <!-- Filter box (matches low-fi) -->
+  <!-- Filter box  -->
   <div class="card-dark p-3 p-md-4 mb-4">
     <form method="GET" class="row g-3 align-items-end">
 

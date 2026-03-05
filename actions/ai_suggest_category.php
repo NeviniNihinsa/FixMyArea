@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 header('Content-Type: application/json');
 
-// ── Session & DB only — no auth.php (it can redirect and break JSON response) ──
+
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../config/db.php';
 
-// Basic session guard — just check logged in, no redirect
+
 if (empty($_SESSION['user_id'])) {
     echo json_encode(['category_id' => null, 'category_name' => null]);
     exit;
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// ── Input ────────────────────────────────────────────────────
+
 $title       = trim($_POST['title'] ?? '');
 $description = trim($_POST['description'] ?? '');
 
@@ -28,7 +28,7 @@ if (mb_strlen($title) < 4 && mb_strlen($description) < 8) {
     exit;
 }
 
-// ── Fetch categories from DB ─────────────────────────────────
+// Fetch categories from DB 
 $categories = $pdo->query("
     SELECT category_id, category_name
     FROM issue_categories
@@ -40,7 +40,7 @@ if (empty($categories)) {
     exit;
 }
 
-// ── Keyword map: tells Gemini what each category covers ──────
+//  for Gemini what each category covers  
 $categoryDescriptions = [
     'Plumbing & Water'      => 'pipe burst, leaking pipe, water supply issue, no water, low water pressure, water meter, tap leak, plumbing repair, blocked toilet, sewage smell from pipe',
     'Electrical & Power'    => 'power outage, electrical fault, short circuit, tripped breaker, no electricity, wiring issue, power fluctuation, socket not working, electrical hazard',
@@ -66,7 +66,7 @@ foreach ($categories as $cat) {
 $categoryList    = implode(', ', array_column($categories, 'category_name'));
 $categoryDetails = implode("\n", $categoryLines);
 
-// ── Prompt ───────────────────────────────────────────────────
+//  Prompt 
 $prompt = <<<PROMPT
 You are a municipal issue classifier for a Sri Lankan city complaint system called FixMyArea.
 
@@ -87,7 +87,7 @@ Issue Description: {$description}
 Category:
 PROMPT;
 
-// ── Call Gemini API ──────────────────────────────────────────
+//  Call Gemini API 
 $apiKey = 'AIzaSyBz_XCZ_-jKgenfQdihmPI2FoJ3GNlXNJ4';
 $url    = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' . $apiKey;
 
@@ -132,7 +132,7 @@ if ($curlErr || !$response || $httpCode !== 200) {
     $suggestedName = trim($suggestedName);
 }
 
-// ── Match to DB category ─────────────────────────────────────
+//  Match to DB category 
 $matched_id   = null;
 $matched_name = null;
 

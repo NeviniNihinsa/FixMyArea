@@ -14,7 +14,7 @@ require_once __DIR__ . '/../includes/navbar.php';
 $areaId   = (int)($_GET['area_id'] ?? 0);
 $fromDate = trim((string)($_GET['from_date'] ?? ''));
 $toDate   = trim((string)($_GET['to_date'] ?? ''));
-$locType  = trim((string)($_GET['loc_type'] ?? '')); // '' | 'common' | 'unit'
+$locType  = trim((string)($_GET['loc_type'] ?? '')); 
 
 $errors = [];
 
@@ -297,7 +297,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
 <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
 <style>
-  /* ✅ FIXED: id must match container below */
+  
   #issuesMapAdmin { width: 100%; height: 100%; min-height: 420px; }
 </style>
 
@@ -573,7 +573,7 @@ function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // use same filters currently on the page
+
   const params = new URLSearchParams({
     area_id: <?= (int)$areaId ?>,
     from_date: <?= json_encode($fromDate) ?>,

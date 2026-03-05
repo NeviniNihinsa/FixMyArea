@@ -48,7 +48,7 @@ if (!$issue) {
     exit;
 }
 
-// 2) Upvotes count (if table exists)
+// 2) Upvotes count 
 $upvotes = 0;
 try {
     $st = $pdo->prepare("SELECT COUNT(*) FROM votes WHERE issue_id=?");
@@ -59,7 +59,7 @@ try {
     $upvotes = 0;
 }
 
-// 3) Photos (your ENUM: REPORT, PROOF_BEFORE, PROOF_AFTER)
+// 3) Photos (Report photos + Proof of Fix photos)
 $photos = [
     'REPORT' => [],
     'PROOF_BEFORE' => [],
@@ -114,7 +114,7 @@ try {
     $comments = [];
 }
 
-// 6) Citizen Feedback / Ratings
+// 6) Tenant Feedback / Ratings
 $feedbacks = [];
 try {
     $st = $pdo->prepare("

@@ -11,15 +11,13 @@ $page_title = 'Leaderboard - Fixly';
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/navbar.php';
 
-/* ──────────────────────────────────────────────
-   FILTERS
-────────────────────────────────────────────── */
+//  FILTERS 
 $areaId    = (int)($_GET['area_id']   ?? 0);
 $monthVal  = trim((string)($_GET['month'] ?? ''));   // 'YYYY-MM' or ''
 
 $areas = $pdo->query("SELECT area_id, area_name FROM areas ORDER BY area_name")->fetchAll(PDO::FETCH_ASSOC);
 
-// Resolve display name
+
 $areaName = 'All areas';
 foreach ($areas as $a) {
   if ((int)$a['area_id'] === $areaId) { $areaName = $a['area_name']; break; }
@@ -45,9 +43,8 @@ $iWhere = $issueWhere  ? "WHERE " . implode(" AND ", $issueWhere)  : "";
 $aWhere = $assignWhere ? "WHERE " . implode(" AND ", $assignWhere) : "";
 $hWhere = $histWhere   ? "WHERE " . implode(" AND ", $histWhere)   : "";
 
-/* ──────────────────────────────────────────────
-   1) FIELD WORKERS — ranked by completed jobs + avg rating
-────────────────────────────────────────────── */
+//   1) FIELD WORKERS — ranked by completed jobs + avg rating
+
 $sqlWorkers = "
 SELECT
   u.user_id,
@@ -70,9 +67,8 @@ $st = $pdo->prepare($sqlWorkers);
 $st->execute($assignParams);
 $workers = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* ──────────────────────────────────────────────
-   2) AUTHORITIES — ranked by actions + avg authority_rating
-────────────────────────────────────────────── */
+//  2) AUTHORITIES — ranked by actions + avg authority_rating
+
 $sqlAuthority = "
 SELECT
   u.user_id,
@@ -95,9 +91,8 @@ $st = $pdo->prepare($sqlAuthority);
 $st->execute($histParams);
 $authorities = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* ──────────────────────────────────────────────
-   3) CITIZENS — ranked by reports filed + votes received on their issues
-────────────────────────────────────────────── */
+//   3) CITIZENS — ranked by reports filed + votes received on their issues
+
 $sqlCitizens = "
 SELECT
   u.user_id,
@@ -120,9 +115,8 @@ $st = $pdo->prepare($sqlCitizens);
 $st->execute($issueParams);
 $citizens = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* ──────────────────────────────────────────────
-   HELPERS
-────────────────────────────────────────────── */
+//   HELPERS
+ 
 function h(?string $s): string {
   return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
