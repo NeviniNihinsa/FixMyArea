@@ -211,7 +211,7 @@ function stars(?int $val): string {
               $hasProof = false;
               foreach ($photos as $p):
                 $t = strtoupper(trim((string)($p['photo_type'] ?? '')));
-                if ($t !== 'PROOF') continue;
+                if ($t !== 'PROOF_AFTER') continue;
                 $hasProof = true;
             ?>
               <a href="<?= h(photoUrl((string)$p['file_path'])) ?>" target="_blank" rel="noreferrer">
@@ -250,7 +250,7 @@ function stars(?int $val): string {
                 enctype="multipart/form-data"
                 class="d-flex align-items-center gap-2 m-0">
             <input type="hidden" name="issue_id"   value="<?= (int)$issueId ?>">
-            <input type="hidden" name="photo_type" value="PROOF">
+            <input type="hidden" name="photo_type" value="PROOF_AFTER">
             <input type="file" name="photo" class="form-control" style="max-width:320px;"
                    accept="image/jpeg,image/png,image/webp" required>
             <button class="btn btn-outline-brand" type="submit">Upload Proof</button>

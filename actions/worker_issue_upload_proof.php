@@ -12,8 +12,8 @@ $userId    = (int)($_SESSION['user_id'] ?? 0);
 $issueId   = (int)($_POST['issue_id'] ?? 0);
 $photoType = strtoupper(trim((string)($_POST['photo_type'] ?? '')));
 
-
-$allowedTypes = ['PROOF'];
+// Must match ENUM values: REPORT, PROOF_BEFORE, PROOF_AFTER
+$allowedTypes = ['PROOF_AFTER'];
 
 if ($issueId <= 0 || $photoType === '' || !in_array($photoType, $allowedTypes, true)) {
   $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Invalid proof type.'];
