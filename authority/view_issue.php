@@ -151,6 +151,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
     ");
     $ins->execute([$postIssueId, $workerId, $userId]);
 
+    // Fetch current status so we know whether to flip PENDING → ASSIGNED
+    $stCur = $pdo->prepare("SELECT status FROM issues WHERE issue_id=? LIMIT 1");
+    $stCur->execute([$postIssueId]);
+    $currentIssueStatus = (string)($stCur->fetchColumn() ?: '');
+
     $upd = $pdo->prepare("
       UPDATE issues
       SET status = CASE WHEN status = 'PENDING' THEN 'ASSIGNED' ELSE status END
@@ -158,6 +163,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
       LIMIT 1
     ");
     $upd->execute([$postIssueId, $myAreaId]);
+
+    // Determine what the status is now (after update)
+    $newIssueStatus = ($currentIssueStatus === 'PENDING') ? 'ASSIGNED' : $currentIssueStatus;
 
     create_notification(
       $pdo,
@@ -193,7 +201,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
           'name' => $workerName,
           'email' => $workerEmail,
           'status' => 'ASSIGNED'
-        ]
+        ],
+        'new_issue_status' => $newIssueStatus
       ]);
     }
 
@@ -362,7 +371,7 @@ require_once __DIR__ . '/../includes/navbar.php';
           &nbsp;|&nbsp; Category: <span class="fw-semibold text-body"><?= h($issue['category_name'] ?? '—') ?></span>
           &nbsp;|&nbsp; Branch: <span class="fw-semibold text-body"><?= h($issue['area_name'] ?? '—') ?></span>
           &nbsp;|&nbsp; Unit: <span class="fw-semibold text-body"><?= h($issue['unit_number'] ?? '—') ?></span>
-          &nbsp;|&nbsp; Status: <span class="badge bg-secondary"><?= h($currentStatus) ?></span>
+          &nbsp;|&nbsp; Status: <span id="issuStatusBadge" class="badge bg-secondary"><?= h($currentStatus) ?></span>
         </div>
       </div>
       <div class="text-end flex-shrink-0">
@@ -594,9 +603,6 @@ require_once __DIR__ . '/../includes/navbar.php';
       showFlash('warning', 'Please select a worker.');
       return;
     }
-    const isReassign = currentBlock && currentBlock.style.display !== 'none' && document.getElementById('assignedWorkerName')?.textContent?.trim();
-    if (!confirm(isReassign ? 'Reassign this issue to the selected worker? The current assignment will be replaced.' : 'Assign this field worker to the issue?')) return;
-
     btn.disabled = true;
     spn.style.display = 'inline';
     sel.disabled = true;
@@ -629,6 +635,16 @@ require_once __DIR__ . '/../includes/navbar.php';
       if (data.worker) {
         // Update "Assigned to: Name" line
         currentBlock.innerHTML = 'Assigned to: <span class="fw-semibold text-body" id="assignedWorkerName">' + esc(data.worker.name || 'Maintenance Technician') + '</span>';
+      }
+
+      // Update the status badge in the header if issue flipped PENDING → ASSIGNED
+      if (data.new_issue_status) {
+        const statusBadge = document.getElementById('issuStatusBadge');
+        if (statusBadge) statusBadge.textContent = data.new_issue_status;
+
+        // Also sync the status dropdown so it reflects the real current status
+        const statusSelect = document.querySelector('select[name="status"]');
+        if (statusSelect) statusSelect.value = data.new_issue_status;
       }
 
       // Keep enabled — authority can reassign at any time
