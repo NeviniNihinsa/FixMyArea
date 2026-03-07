@@ -19,6 +19,23 @@ function h(?string $s): string {
   return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 
+function niceStatus(string $s): string {
+  return str_replace('_', ' ', strtoupper(trim($s)));
+}
+
+function statusBadge(string $s): string {
+  return match(strtoupper(trim($s))) {
+    'PENDING'     => 'bg-secondary',
+    'ASSIGNED'    => 'bg-primary bg-opacity-75',
+    'IN_PROGRESS' => 'bg-warning text-dark',
+    'COMPLETED'   => 'bg-success',
+    'CLOSED'      => 'bg-success',
+    'REOPENED'    => 'bg-info text-dark',
+    'REJECTED'    => 'bg-danger',
+    default       => 'bg-secondary',
+  };
+}
+
 /** Get authority branch/area */
 $st = $pdo->prepare("
   SELECT u.area_id, a.area_name
@@ -248,7 +265,7 @@ require_once __DIR__ . '/../includes/navbar.php';
             <option value="">All</option>
             <?php foreach ($allowedStatuses as $s): if ($s === '') continue; ?>
               <option value="<?= h($s) ?>" <?= ($status === $s) ? 'selected' : '' ?>>
-                <?= h($s) ?>
+                <?= h(niceStatus($s)) ?>
               </option>
             <?php endforeach; ?>
           </select>
@@ -319,7 +336,7 @@ require_once __DIR__ . '/../includes/navbar.php';
               <td><?= h((string)($it['category_name'] ?? '')) ?></td>
               <td><?= h((string)($it['reporter_email'] ?? '')) ?></td>
               <td><?= h((string)($it['field_worker_name'] ?? 'Not Assigned')) ?></td>
-              <td><?= h((string)($it['status'] ?? '')) ?></td>
+              <td><span class="badge <?= statusBadge((string)($it['status'] ?? '')) ?>"><?= h(niceStatus((string)($it['status'] ?? ''))) ?></span></td>
               <td>
                 <a class="btn btn-sm btn-outline-brand"
                    href="<?= BASE_URL ?>/authority/view_issue.php?issue_id=<?= (int)$it['issue_id'] ?>">

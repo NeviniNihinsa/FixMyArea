@@ -72,7 +72,7 @@ $st->execute($params);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
-function niceStatus(string $s): string { return strtoupper(trim($s)); }
+function niceStatus(string $s): string { return str_replace('_', ' ', strtoupper(trim($s))); }
 function statusBadge(string $s): string {
   return match(strtoupper(trim($s))) {
     'PENDING'     => 'bg-secondary',
@@ -101,7 +101,7 @@ function statusBadge(string $s): string {
         <select name="status" class="form-select form-select-sm" style="min-width:180px;">
           <option value="">All Statuses</option>
           <?php foreach ($allowedStatuses as $s): ?>
-            <option value="<?= h($s) ?>" <?= $filterStatus === $s ? 'selected' : '' ?>><?= h($s) ?></option>
+            <option value="<?= h($s) ?>" <?= $filterStatus === $s ? 'selected' : '' ?>><?= h(str_replace('_', ' ', $s)) ?></option>
           <?php endforeach; ?>
         </select>
       </div>
