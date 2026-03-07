@@ -153,7 +153,7 @@ function format_role(string $role): string {
     };
 }
 
-$allowedStatuses = ['PENDING','IN_PROGRESS','RESOLVED','COMPLETED','CLOSED','REJECTED'];
+$allowedStatuses = ['PENDING','IN_PROGRESS','COMPLETED','CLOSED','REJECTED'];
 ?>
 <div class="app-container">
   <div class="container py-4">
